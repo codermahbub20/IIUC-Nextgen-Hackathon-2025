@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { use, useState } from 'react';
 import { FaGoogle, FaLinkedin, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { AuthContext } from '../../../Provider/AuthProvider';
 
 interface LoginFormProps {
   isDarkMode: boolean;
@@ -9,6 +11,23 @@ const Login: React.FC<LoginFormProps> = ({ isDarkMode }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const {createUserByGoogle,} = use(AuthContext);
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
+
+    // Handle Google Sign-In
+    const handleGoogleSignIn = () => {
+      createUserByGoogle()
+      .then(result =>{
+        console.log(result.user);
+        navigate(`${location.state ? location.state : "/"}`);
+      })
+      .catch(error =>{
+        console.log(error.message);
+      })
+    };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,7 +133,7 @@ const Login: React.FC<LoginFormProps> = ({ isDarkMode }) => {
 
         {/* Social Logins */}
         <div className="flex gap-4">
-          <button
+          <button onClick={handleGoogleSignIn}
             type="button"
             className={socialBtnClasses}
           >
