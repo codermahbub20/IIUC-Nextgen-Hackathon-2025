@@ -7,14 +7,23 @@ import { Provider } from "react-redux";
 import { persistor, store } from "./redux/store.ts";
 import { PersistGate } from "redux-persist/integration/react";
 import { Toaster } from "sonner";
+import AuthProvider from "./Provider/AuthProvider.tsx";
+
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <Provider store={store}>
+    
+
+     <AuthProvider>
+     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
         <RouterProvider router={router} />
       </PersistGate>
       <Toaster position="top-right" richColors />
     </Provider>
+      </AuthProvider> 
+   
+
+  
   </StrictMode>
 );

@@ -1,9 +1,8 @@
 
-import OrbitOpsLanding from "./Future";
+
 import HeroBanner from "./HeroBanner";
 
-import ProcessSection from "./Process";
-import ServicesSection from "./Service";
+
 
 
 
@@ -12,9 +11,7 @@ const Home = () => {
         <div>
             {/* <Navbar/> */}
             <HeroBanner/>
-            <ServicesSection/>
-            <ProcessSection/>
-            <OrbitOpsLanding/>
+            
            
         </div>
     );
