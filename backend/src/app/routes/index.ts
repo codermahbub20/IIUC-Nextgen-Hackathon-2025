@@ -1,6 +1,7 @@
 import  { Router } from 'express';
 import { userRoutes } from '../modules/User/user.route';
 import { AuthRoutes } from '../modules/Auth/auth.route';
+import { jobRoutes } from '../modules/Jobs/job.route';
 
 
 
@@ -17,6 +18,10 @@ const moduleRoutes = [
     path: '/auth',
     route: AuthRoutes,
   },
+{
+  path:'/jobs',
+  route:jobRoutes,
+}
  
  
 ];
