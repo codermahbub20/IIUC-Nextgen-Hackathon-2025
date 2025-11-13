@@ -1,19 +1,32 @@
 /* eslint-disable no-unused-vars */
 import { Model, Types } from 'mongoose';
+import { USER_ROLE } from './user.constant';
 
 
 
 
-export type TExperienceLevel = "Fresher" | "Junior" | "Mid" | "Senior";
+export type TExperienceLevel =
+  | "Fresher"
+  | "Junior (0-2 years)"
+  | "Mid-Level (2-5 years)"
+  | "Senior (5+ years)";
+
 export type TCareerTrack =
   | "Web Development"
-  | "Data"
-  | "Design"
-  | "Marketing"
-  | "Cybersecurity"
-  | "AI/ML"
-  | "Mobile App"
+  | "Mobile Development"
+  | "Data Science & Analytics"
+  | "UI/UX Design"
+  | "Graphic Design"
+  | "Digital Marketing"
+  | "Content Creation"
+  | "Business Development"
+  | "Project Management"
+  | "HR & Recruitment"
+  | "Finance & Accounting"
+  | "Customer Support"
+  | "Sales"
   | "Other";
+
 
 export interface TUser {
   _id?: Types.ObjectId;
@@ -46,7 +59,7 @@ export interface UserModel extends Model<TUser> {
 
   isUserExistByEmail(email: string): Promise<TUser | null>;
 }
-
+export type TUserRole = keyof typeof USER_ROLE;
 
 
 

@@ -1,366 +1,428 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
-import { Search, Filter, ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { 
+  Briefcase, 
+  Search, 
+  Filter, 
+  MapPin, 
+  Building2, 
+  Clock, 
+  Flame,
+  ExternalLink,
+  Calendar
+} from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { useGetAllJobsQuery } from '../../../redux/features/jobs/jobsApi';
 
-// --- Types (based on your ERD and Req 3) ---
+
 interface Job {
-  id: string;
+  _id?: string;
   title: string;
   company: string;
-  logoUrl: string; 
   location: string;
   requiredSkills: string[];
-  experienceLevel: 'Fresher' | 'Junior' | 'Mid';
-  jobType: 'Internship' | 'Part-time' | 'Full-time';
+  experienceLevel: string;
+  jobType: string;
   description: string;
-  isRecommended?: boolean; // For Req 5 (Basic Matching)
+  applyLink: string;
+  careerTrack: string;
+  postedAt: string;
 }
 
-// --- Mock Data (Fulfills Req 3: Seeded Data) ---
+interface SkillDemand {
+  skill: string;
+  count: number;
+  jobs: string[];
+}
 
-const MOCK_JOBS: Job[] = [
-  {
-    id: '1',
-    title: 'Software Engineer',
-    company: 'Amazon',
-    logoUrl: 'https://placehold.co/50x50/F8991D/ffffff?text=A&font=inter',
-    location: 'Seattle, WA',
-    requiredSkills: ['JavaScript', 'React', 'Node.js', 'AWS'],
-    experienceLevel: 'Junior',
-    jobType: 'Internship',
-    description: 'Join our dynamic team to build scalable software solutions. You will work on...',
-    isRecommended: true,
-  },
-  {
-    id: '2',
-    title: 'Product Manager',
-    company: 'Google',
-    logoUrl: 'https://placehold.co/50x50/4285F4/ffffff?text=G&font=inter',
-    location: 'Mountain View, CA',
-    requiredSkills: ['Product Strategy', 'Agile', 'Communication'],
-    experienceLevel: 'Mid',
-    jobType: 'Full-time',
-    description: 'Lead the development of innovative products. You will define the roadmap...',
-  },
-  {
-    id: '3',
-    title: 'UX Designer',
-    company: 'Microsoft',
-    logoUrl: 'https://placehold.co/50x50/F25022/ffffff?text=M&font=inter',
-    location: 'Redmond, WA',
-    requiredSkills: ['Figma', 'User Research', 'Prototyping'],
-    experienceLevel: 'Junior',
-    jobType: 'Full-time',
-    description: 'Craft intuitive and beautiful user experiences for our cloud services...',
-  },
-  {
-    id: '4',
-    title: 'Data Analyst',
-    company: 'Meta',
-    logoUrl: 'https://placehold.co/50x50/0068E1/ffffff?text=M&font=inter',
-    location: 'Remote',
-    requiredSkills: ['SQL', 'Python', 'Tableau', 'Excel'],
-    experienceLevel: 'Fresher',
-    jobType: 'Internship',
-    description: 'Analyze large datasets to provide actionable insights for our products...',
-    isRecommended: true,
-  },
-  {
-    id: '5',
-    title: 'Frontend Developer',
-    company: 'Netflix',
-    logoUrl: 'https://placehold.co/50x50/E50914/ffffff?text=N&font=inter',
-    location: 'Los Gatos, CA',
-    requiredSkills: ['HTML', 'CSS', 'JavaScript', 'React'],
-    experienceLevel: 'Junior',
-    jobType: 'Part-time',
-    description: 'Build responsive and high-performance user interfaces for millions of users.',
-  },
-  {
-    id: '6',
-    title: 'Marketing Intern',
-    company: 'HubSpot',
-    logoUrl: 'https://placehold.co/50x50/FF7A59/ffffff?text=H&font=inter',
-    location: 'Remote',
-    requiredSkills: ['Social Media', 'Content Writing', 'SEO'],
-    experienceLevel: 'Fresher',
-    jobType: 'Internship',
-    description: 'Support our marketing campaigns and help grow our online presence.',
-  },
-  
-];
+interface HeatmapData {
+  skill: string;
+  fullSkill: string;
+  demand: number;
+  jobs: string[];
+}
 
-const ROLES_FILTER = ['Software Engineer', 'Product Manager', 'UX Designer', 'Data Analyst', 'Frontend Developer'];
-const JOB_TYPE_FILTER = ['Full-time', 'Part-time', 'Internship'];
+const Jobs: React.FC = () => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterTrack, setFilterTrack] = useState("all");
+  const [filterType, setFilterType] = useState("all");
+  const [filterLevel, setFilterLevel] = useState("all");
+  const [selectedLocation, setSelectedLocation] = useState("all");
 
-// --- Reusable Job Card Component ---
-const JobCard: React.FC<{ job: Job }> = ({ job }) => (
-  <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 p-6 flex flex-col justify-between min-h-[280px]">
-    <div>
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-4">
-          <img 
-            src={job.logoUrl} 
-            alt={`${job.company} logo`} 
-            className="w-12 h-12 rounded-lg object-contain"
-          />
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
-            <p className="text-sm text-gray-600">{job.company}</p>
-          </div>
+  // Redux query to fetch jobs from backend
+  const { data, isLoading, isError, error } = useGetAllJobsQuery({});
+  const jobsData: Job[] = data?.data || [];
+
+  // Filter jobs based on all criteria
+  const filteredJobs = jobsData.filter(job => {
+    const matchesSearch = searchQuery === "" ||
+      job.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      job.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      job.location?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesTrack = filterTrack === "all" || job.careerTrack === filterTrack;
+    const matchesType = filterType === "all" || job.jobType === filterType;
+    const matchesLevel = filterLevel === "all" || job.experienceLevel === filterLevel;
+    const matchesLocation = selectedLocation === "all" || 
+      job.location?.toLowerCase().includes(selectedLocation.toLowerCase());
+
+    return matchesSearch && matchesTrack && matchesType && matchesLevel && matchesLocation;
+  });
+
+  // Calculate demand heatmap data based on filtered jobs
+  const locations = [...new Set(jobsData.map(j => j.location))].filter(Boolean);
+  const skillDemand: Record<string, SkillDemand> = {};
+
+  filteredJobs.forEach(job => {
+    job.requiredSkills?.forEach(skill => {
+      if (!skillDemand[skill]) {
+        skillDemand[skill] = { skill, count: 0, jobs: [] };
+      }
+      skillDemand[skill].count++;
+      skillDemand[skill].jobs.push(job.title);
+    });
+  });
+
+  const topSkills = Object.values(skillDemand)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  const heatmapData: HeatmapData[] = topSkills.map(s => ({
+    skill: s.skill.length > 12 ? s.skill.substring(0, 12) + '...' : s.skill,
+    fullSkill: s.skill,
+    demand: s.count,
+    jobs: s.jobs
+  }));
+
+  const getBarColor = (demand: number): string => {
+    if (demand >= 15) return "#dc2626";
+    if (demand >= 10) return "#f97316";
+    if (demand >= 5) return "#eab308";
+    return "#3b82f6";
+  };
+
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+    return date.toLocaleDateString();
+  };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50/30 to-violet-50/30">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600 text-lg font-medium">Loading jobs...</p>
         </div>
-        {job.isRecommended && (
-          <span className="flex items-center gap-1 bg-blue-100 text-blue-700 text-xs font-medium px-2.5 py-1 rounded-full">
-            <Star className="w-3 h-3" fill="currentColor" />
-            Recommended
-          </span>
-        )}
       </div>
-      <p className="text-sm text-gray-600 line-clamp-3 mb-4">
-        {job.description}
-      </p>
-    </div>
-    <div className="flex flex-wrap gap-2">
-      <span className="bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-full">{job.jobType}</span>
-      <span className="bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-full">{job.location}</span>
-      <span className="bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-full">{job.experienceLevel}</span>
-    </div>
-  </div>
-);
+    );
+  }
 
-// --- Reusable Pagination Component ---
-const Pagination: React.FC<{
-  currentPage: number,
-  totalPages: number,
-  onPageChange: (page: number) => void
-}> = ({ currentPage, totalPages, onPageChange }) => {
-  const pageNumbers = [];
-  for (let i = 1; i <= totalPages; i++) {
-    pageNumbers.push(i);
+  // Error state
+  if (isError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50/30 to-violet-50/30">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-red-600 text-2xl">⚠</span>
+          </div>
+          <h3 className="text-xl font-semibold text-slate-900 mb-2">Error Loading Jobs</h3>
+          <p className="text-slate-600 mb-4">
+            {error && typeof error === 'object' && 'data' in error 
+              ? (error.data as any)?.message || 'Unable to fetch jobs from server'
+              : 'Please check your connection and try again'}
+          </p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <nav className="flex items-center justify-center gap-2 mt-10">
-      <button
-        onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage === 1}
-        className="p-2 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <ChevronLeft className="w-5 h-5 text-gray-600" />
-      </button>
-      
-      {pageNumbers.map((number) => (
-        <button
-          key={number}
-          onClick={() => onPageChange(number)}
-          className={`w-9 h-9 rounded-md text-sm font-medium ${
-            currentPage === number 
-              ? 'bg-blue-600 text-white' 
-              : 'text-gray-700 hover:bg-gray-100'
-          }`}
-        >
-          {number}
-        </button>
-      ))}
-      
-      <button
-        onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className="p-2 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <ChevronRight className="w-5 h-5 text-gray-600" />
-      </button>
-    </nav>
-  );
-};
+    <div className="p-4 md:p-8 min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-violet-50/30">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+            <Briefcase className="w-8 h-8 text-blue-600" />
+            Available Jobs
+          </h1>
+          <p className="text-slate-600">
+            Browse {jobsData.length} opportunities matching your profile
+          </p>
+        </div>
 
-
-// --- Main Jobs Component ---
-const Jobs: React.FC = () => {
-  // --- State ---
-  const [allJobs] = useState<Job[]>(MOCK_JOBS);
-  const [filteredJobs, setFilteredJobs] = useState<Job[]>(MOCK_JOBS);
-  
-  // Filter States
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
-  const [selectedJobTypes, setSelectedJobTypes] = useState<string[]>([]);
-
-  // Pagination State
-  const [currentPage, setCurrentPage] = useState(1);
-  const [jobsPerPage] = useState(9); // 3x3 Grid as in the picture
-
-  // --- Logic ---
-
-  // Handle Checkbox Changes
-  const handleCheckboxChange = (
-    value: string, 
-    filterType: 'role' | 'jobType'
-  ) => {
-    const state = filterType === 'role' ? selectedRoles : selectedJobTypes;
-    const setState = filterType === 'role' ? setSelectedRoles : setSelectedJobTypes;
-    
-    if (state.includes(value)) {
-      setState(state.filter(item => item !== value));
-    } else {
-      setState([...state, value]);
-    }
-  };
-
-  // Handle Filter Application
-  const handleApplyFilters = () => {
-    let jobs = allJobs;
-
-    // 1. Filter by Search Term
-    if (searchTerm) {
-      jobs = jobs.filter(job => 
-        job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        job.company.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // 2. Filter by Role
-    if (selectedRoles.length > 0) {
-      jobs = jobs.filter(job => selectedRoles.includes(job.title));
-    }
-
-    // 3. Filter by Job Type
-    if (selectedJobTypes.length > 0) {
-      jobs = jobs.filter(job => selectedJobTypes.includes(job.jobType));
-    }
-
-    setFilteredJobs(jobs);
-    setCurrentPage(1);
-  };
-
-  // Handle Filter Reset
-  const handleResetFilters = () => {
-    setSearchTerm('');
-    setSelectedRoles([]);
-    setSelectedJobTypes([]);
-    setFilteredJobs(allJobs);
-    setCurrentPage(1);
-  };
-  
-  // Pagination Logic
-  const totalPages = Math.ceil(filteredJobs.length / jobsPerPage);
-  const indexOfLastJob = currentPage * jobsPerPage;
-  const indexOfFirstJob = indexOfLastJob - jobsPerPage;
-  const currentJobs = filteredJobs.slice(indexOfFirstJob, indexOfLastJob);
-
-  // Change page
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
-
-
-  // --- JSX ---
-  return (
-    <div className="bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="flex flex-col md:flex-row gap-8">
-          
-          {/* --- Left Column: Filters --- */}
-          <aside className="w-full md:w-1/4">
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                <Filter className="w-5 h-5" />
-                Filters
-              </h2>
-              
-              {/* Search */}
-              <div className="mb-6">
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search by keyword..."
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        {/* Demand Heatmap */}
+        {heatmapData.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200/60 overflow-hidden">
+            <div className="p-6 border-b border-slate-200/60 bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50">
+              <div className="flex items-center gap-2 mb-2">
+                <Flame className="w-5 h-5 text-red-600" />
+                <h2 className="text-xl font-semibold text-slate-900">Skills Demand Heatmap</h2>
+                {selectedLocation !== "all" && (
+                  <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                    {selectedLocation}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-slate-600">
+                See which skills are most in-demand based on current job openings
+              </p>
+            </div>
+            <div className="p-6">
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={heatmapData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" label={{ value: 'Number of Jobs', position: 'bottom', offset: 0 }} />
+                  <YAxis dataKey="skill" type="category" width={100} tickLine={false} axisLine={false} />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(0,0,0,0.1)' }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload[0]) {
+                        const data = payload[0].payload as HeatmapData;
+                        return (
+                          <div className="bg-white p-3 rounded-lg shadow-lg border border-slate-200">
+                            <p className="font-bold">{data.fullSkill}</p>
+                            <p className="text-sm text-slate-600">{data.demand} job openings</p>
+                            <p className="text-xs text-slate-500 mt-1">
+                              {data.demand >= 15 ? '🔥 Very Hot!' :
+                               data.demand >= 10 ? '🔥 Hot!' :
+                               data.demand >= 5 ? '⚡ In Demand' :
+                               '📊 Normal'}
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
                   />
-                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Bar dataKey="demand" radius={[0, 8, 8, 0]}>
+                    {heatmapData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={getBarColor(entry.demand)} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="flex items-center justify-center gap-4 mt-4 text-xs">
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                  <span>Normal</span>
                 </div>
-              </div>
-              
-              {/* Role Filter */}
-              <div className="mb-6">
-                <h3 className="font-semibold text-gray-800 mb-3">Role</h3>
-                <div className="space-y-2">
-                  {ROLES_FILTER.map(role => (
-                    <label key={role} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                        checked={selectedRoles.includes(role)}
-                        onChange={() => handleCheckboxChange(role, 'role')}
-                      />
-                      <span className="ml-3 text-sm text-gray-600">{role}</span>
-                    </label>
-                  ))}
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+                  <span>Warm (5+)</span>
                 </div>
-              </div>
-              
-              {/* Job Type Filter */}
-              <div className="mb-6">
-                <h3 className="font-semibold text-gray-800 mb-3">Job Type</h3>
-                <div className="space-y-2">
-                  {JOB_TYPE_FILTER.map(type => (
-                    <label key={type} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                        checked={selectedJobTypes.includes(type)}
-                        onChange={() => handleCheckboxChange(type, 'jobType')}
-                      />
-                      <span className="ml-3 text-sm text-gray-600">{type}</span>
-                    </label>
-                  ))}
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-orange-500 rounded"></div>
+                  <span>Hot (10+)</span>
                 </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-3">
-                <button
-                  onClick={handleApplyFilters}
-                  className="w-full bg-blue-600 text-white font-semibold py-2.5 rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Apply Filters
-                </button>
-                <button
-                  onClick={handleResetFilters}
-                  className="w-full bg-gray-200 text-gray-700 font-semibold py-2.5 rounded-md hover:bg-gray-300 transition-colors"
-                >
-                  Reset
-                </button>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-red-600 rounded"></div>
+                  <span>Very Hot (15+)</span>
+                </div>
               </div>
             </div>
-          </aside>
-          
-          {/* --- Right Column: Job Listings --- */}
-          <main className="w-full md:w-3/4">
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">
-              Showing {filteredJobs.length} Job Results
-            </h1>
-            
-            {filteredJobs.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {currentJobs.map(job => (
-                  <JobCard key={job.id} job={job} />
-                ))}
+          </div>
+        )}
+
+        {/* Filters */}
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200/60 overflow-hidden">
+          <div className="p-6">
+            <div className="grid md:grid-cols-5 gap-4">
+              {/* Search */}
+              <div className="md:col-span-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                  <input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search jobs, companies, locations..."
+                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
               </div>
-            ) : (
-              <div className="text-center bg-white p-10 rounded-lg shadow-md">
-                <h3 className="text-xl font-semibold text-gray-800">No Jobs Found</h3>
-                <p className="text-gray-500 mt-2">Try adjusting your filters to find what you're looking for.</p>
+
+              {/* Location Filter */}
+              <div>
+                <select
+                  value={selectedLocation}
+                  onChange={(e) => setSelectedLocation(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">All Locations</option>
+                  {locations.map(loc => (
+                    <option key={loc} value={loc.toLowerCase()}>{loc}</option>
+                  ))}
+                </select>
               </div>
-            )}
-            
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <Pagination 
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={paginate}
-              />
-            )}
-          </main>
+
+              {/* Career Track Filter */}
+              <div>
+                <select
+                  value={filterTrack}
+                  onChange={(e) => setFilterTrack(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">All Tracks</option>
+                  <option value="Web Development">Web Development</option>
+                  <option value="Mobile Development">Mobile Development</option>
+                  <option value="Data">Data</option>
+                  <option value="Machine Learning">Machine Learning</option>
+                  <option value="Graphic Design">Graphic Design</option>
+                  <option value="UI/UX Design">UI/UX Design</option>
+                  <option value="Digital Marketing">Digital Marketing</option>
+                  <option value="Content Writing">Content Writing</option>
+                  <option value="Business Analysis">Business Analysis</option>
+                  <option value="Project Management">Project Management</option>
+                  <option value="Cybersecurity">Cybersecurity</option>
+                  <option value="DevOps">DevOps</option>
+                </select>
+              </div>
+
+              {/* Job Type Filter */}
+              <div>
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">All Types</option>
+                  <option value="Internship">Internship</option>
+                  <option value="Part-time">Part-time</option>
+                  <option value="Full-time">Full-time</option>
+                  <option value="Freelance">Freelance</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Experience Level Filter (Additional Row) */}
+            <div className="grid md:grid-cols-5 gap-4 mt-4">
+              <div>
+                <select
+                  value={filterLevel}
+                  onChange={(e) => setFilterLevel(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">All Levels</option>
+                  <option value="Entry Level">Entry Level</option>
+                  <option value="Mid Level">Mid Level</option>
+                  <option value="Senior">Senior</option>
+                  <option value="Lead">Lead</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 mt-4">
+              <Filter className="w-4 h-4 text-slate-400" />
+              <span className="text-sm text-slate-600">
+                Showing {filteredJobs.length} of {jobsData.length} jobs
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Jobs List */}
+        <div className="grid md:grid-cols-2 gap-6">
+          {filteredJobs.length > 0 ? (
+            filteredJobs.map((job) => (
+              <div key={job._id} className="bg-white rounded-xl shadow-lg border border-slate-200/60 overflow-hidden hover:shadow-xl transition-shadow">
+                <div className="p-6">
+                  {/* Job Header */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-slate-900 mb-1">{job.title}</h3>
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <Building2 className="w-4 h-4" />
+                        <span className="font-medium">{job.company}</span>
+                      </div>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      job.jobType === 'Full-time' ? 'bg-green-100 text-green-800' :
+                      job.jobType === 'Part-time' ? 'bg-yellow-100 text-yellow-800' :
+                      job.jobType === 'Internship' ? 'bg-blue-100 text-blue-800' :
+                      'bg-purple-100 text-purple-800'
+                    }`}>
+                      {job.jobType}
+                    </span>
+                  </div>
+
+                  {/* Job Details */}
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                      <MapPin className="w-4 h-4" />
+                      <span>{job.location}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                      <Clock className="w-4 h-4" />
+                      <span>{job.experienceLevel}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                      <Calendar className="w-4 h-4" />
+                      <span>{formatDate(job.postedAt)}</span>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-sm text-slate-600 mb-4 line-clamp-2">{job.description}</p>
+
+                  {/* Skills */}
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Required Skills</p>
+                    <div className="flex flex-wrap gap-2">
+                      {job.requiredSkills?.map((skill, index) => (
+                        <span key={index} className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-xs font-medium">
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Career Track */}
+                  <div className="mb-4">
+                    <span className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
+                      {job.careerTrack}
+                    </span>
+                  </div>
+
+                  {/* Apply Button */}
+                  <a
+                    href={job.applyLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-violet-600 hover:from-blue-600 hover:to-violet-700 text-white rounded-lg font-medium transition-all"
+                  >
+                    Apply Now
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="md:col-span-2 bg-white rounded-xl shadow-lg border border-slate-200/60 overflow-hidden">
+              <div className="p-12 text-center">
+                <Briefcase className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-slate-900 mb-2">No jobs found</h3>
+                <p className="text-slate-500">
+                  {jobsData.length === 0 
+                    ? "No jobs available at the moment. Check back soon!"
+                    : "Try adjusting your filters or search query"}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

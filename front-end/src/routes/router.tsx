@@ -6,9 +6,7 @@ import Jobs from "../Components/Pages/Jobs/Jobs";
 import Dashboard from "../Components/Pages/Dashboard/Dashboard";
 import Resources from "../Components/Pages/Resources/Resources";
 import Profile from "../Components/Pages/Profile/Profile";
-
-
-
+import DashboardLayout from "../Components/DashBoardLayout/DashboardLayout";
 
 export const router = createBrowserRouter([
   {
@@ -21,26 +19,40 @@ export const router = createBrowserRouter([
       },
       {
         path: "/auth",
-        element: < AuthPage/>,
+        element: <AuthPage />,
       },
       {
         path: "/jobs",
-        element: < Jobs/>,
-      },
-      {
-        path: "/dashboard",
-        element: < Dashboard/>,
+        element: <Jobs />,
       },
       {
         path: "/resources",
-        element: < Resources/>,
+        element: <Resources />,
       },
       {
         path: "/profile",
-        element: < Profile/>,
+        element: <Profile />,
       },
-      
     ],
-  }
+  },
 
+  // ✅ Dashboard Layout Route
+  {
+    path: "/dashboard",
+    element: <DashboardLayout />,
+    children: [
+      {
+        index: true, 
+        element: <Dashboard />,
+      },
+      {
+        path: "profile",
+        element: <Profile />,
+      },
+      {
+        path: "resources", 
+        element: <Resources />,
+      },
+    ],
+  },
 ]);
