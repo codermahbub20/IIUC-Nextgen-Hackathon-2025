@@ -38,7 +38,7 @@ export const router = createBrowserRouter([
     path: "/dashboard",
     element: <DashboardLayout />,
     children: [
-      { index: true, element: <Dashboard /> },
+      { index: true, element: <Dashboard /> }, // /dashboard
       { path: "resume-build", element: <ResumeBuild /> },
       // { path: "careerbot", element: <CareerBot /> },
       { path: "cvassistant", element: <CVAssistant /> },
