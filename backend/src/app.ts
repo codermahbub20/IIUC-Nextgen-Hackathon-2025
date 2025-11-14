@@ -7,7 +7,7 @@ const app: Application = express();
 
 app.use(
   cors({
-    origin: 'https://kmg-task-manager-front-end.vercel.app', 
+    origin: 'http://localhost:5173', 
     credentials: true, 
   }),
 );

@@ -1,0 +1,246 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useLocation, Outlet, Link } from 'react-router-dom';
+import { 
+  LayoutDashboard, 
+  LogOut, 
+  Rocket, 
+  Menu,
+  X
+} from 'lucide-react';
+import { useGetUserQuery } from '../../redux/features/users/usersApi';
+import { useSelector } from 'react-redux';
+
+interface NavigationItem {
+  title: string;
+  url: string;
+  icon: React.ElementType;
+}
+
+interface DecodedToken {
+  id: string;
+  email: string;
+  iat?: number;
+  exp?: number;
+}
+
+const navigationItems: NavigationItem[] = [
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+];
+
+const DashboardLayout: React.FC = () => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get current page from location
+  const currentPage = location.pathname;
+  
+  const authState = useSelector((state: any) => state.auth);
+  const token = authState?.token || authState?.user?.data?.token || authState?.user?.token || null;
+  
+  console.log("Auth state in layout:", authState);
+  console.log("Token:", token);
+  
+  // Decode JWT token and extract user ID
+  useEffect(() => {
+    if (token) {
+      try {
+        // Decode JWT token (payload is the middle part)
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split('')
+            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+        const decoded: DecodedToken = JSON.parse(jsonPayload);
+        console.log("Decoded token:", decoded);
+        
+        // Set the user ID from decoded token
+        if (decoded.id) {
+          setUserId(decoded.id);
+        }
+      } catch (error) {
+        console.error("Error decoding token:", error);
+        setUserId(null);
+      }
+    } else {
+      setUserId(null);
+    }
+  }, [token]);
+  
+  // Fetch user data using the extracted user ID
+  const { data: userData, isLoading: isUserLoading, error: userError } = useGetUserQuery(userId || "", {
+    skip: !userId,
+  });
+
+  console.log("User ID:", userId);
+  console.log("User data in layout:", userData);
+  console.log("User loading:", isUserLoading);
+  console.log("User error:", userError);
+
+  // Get user info - try multiple possible data structures
+  const user = userData?.data || userData?.user || userData || {};
+  const displayName = user?.fullName || user?.full_name || user?.name || 'User';
+  const displayEmail = user?.email || 'user@example.com';
+  const displayInitial = displayName?.[0]?.toUpperCase() || 'U';
+
+  const handleNavigation = (url: string) => {
+    navigate(url);
+    setIsSidebarOpen(false);
+  };
+
+  const handleLogout = () => {
+    console.log("Logging out...");
+    // Clear tokens
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    // Navigate to login
+    navigate('/login');
+  };
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  return (
+    <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 via-blue-50/30 to-violet-50/30">
+      {/* Sidebar for desktop and mobile */}
+      <aside
+        className={`
+          fixed md:static inset-y-0 left-0 z-50
+          w-72 bg-white/80 backdrop-blur-sm border-r border-slate-200/60
+          transform transition-transform duration-300 ease-in-out
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+          flex flex-col
+        `}
+      >
+        {/* Sidebar Header */}
+        <div className="border-b border-slate-200/60 p-6">
+          <div className="flex items-center justify-between">
+            <Link to="/">
+             <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-violet-600 rounded-xl flex items-center justify-center shadow-md">
+                <Rocket className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="font-bold text-slate-900 text-lg">CareerLaunch</h2>
+                <p className="text-xs text-slate-500">Your Path to Success</p>
+              </div>
+            </div>
+            </Link>
+            <button
+              onClick={toggleSidebar}
+              className="md:hidden p-2 hover:bg-slate-100 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-slate-700" />
+            </button>
+          </div>
+        </div>
+
+        {/* Navigation - Scrollable */}
+        <div className="flex-1 overflow-y-auto p-3">
+          <div className="mb-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3 py-2">
+              Navigation
+            </p>
+            <nav className="space-y-1">
+              {navigationItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentPage === item.url;
+                return (
+                  <button
+                    key={item.title}
+                    onClick={() => handleNavigation(item.url)}
+                    className={`
+                      w-full flex items-center gap-3 px-3 py-2.5 rounded-lg
+                      transition-all duration-200 text-left
+                      ${
+                        isActive
+                          ? 'bg-gradient-to-r from-blue-500 to-violet-600 text-white shadow-md'
+                          : 'text-slate-700 hover:bg-blue-50'
+                      }
+                    `}
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="font-medium">{item.title}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        </div>
+
+        {/* Sidebar Footer */}
+        <div className="border-t border-slate-200/60 p-4 bg-white/80 backdrop-blur-sm">
+          <div className="space-y-3">
+            {isUserLoading ? (
+              <div className="flex items-center gap-3 px-2">
+                <div className="w-10 h-10 bg-slate-200 rounded-full animate-pulse flex-shrink-0"></div>
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="h-4 bg-slate-200 rounded animate-pulse"></div>
+                  <div className="h-3 bg-slate-200 rounded animate-pulse w-3/4"></div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 px-2">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-violet-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-blue-700 font-semibold text-sm">
+                    {displayInitial}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-900 text-sm truncate">
+                    {displayName}
+                  </p>
+                  <p className="text-xs text-slate-500 truncate">{displayEmail}</p>
+                </div>
+              </div>
+            )}
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-start gap-2 px-4 py-2 text-sm border border-red-200 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Overlay for mobile */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={toggleSidebar}
+        />
+      )}
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col min-h-screen">
+        {/* Mobile Header */}
+        <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200/60 px-6 py-4 md:hidden sticky top-0 z-10">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={toggleSidebar}
+              className="hover:bg-slate-100 p-2 rounded-lg transition-colors duration-200"
+            >
+              <Menu className="w-6 h-6 text-slate-700" />
+            </button>
+            <h1 className="text-xl font-bold text-slate-900">CareerLaunch</h1>
+          </div>
+        </header>
+
+        {/* Page Content - This is where child routes will render */}
+        <div className="flex-1 overflow-auto">
+          <Outlet />
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default DashboardLayout;
