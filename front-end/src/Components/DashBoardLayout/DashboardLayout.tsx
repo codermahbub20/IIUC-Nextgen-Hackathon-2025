@@ -6,7 +6,8 @@ import {
   LogOut, 
   Rocket, 
   Menu,
-  X
+  X,
+  FocusIcon
 } from 'lucide-react';
 import { useGetUserQuery } from '../../redux/features/users/usersApi';
 import { useSelector } from 'react-redux';
@@ -26,6 +27,9 @@ interface DecodedToken {
 
 const navigationItems: NavigationItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Career Roadmap", url: "/dashboard/career-roadmap", icon: FocusIcon },
+  { title: "My Skill Gap", url: "/dashboard/skill-gap", icon: FocusIcon },
+  { title: "Chat Assistant", url: "/dashboard/chatbot", icon: FocusIcon },
 ];
 
 const DashboardLayout: React.FC = () => {
