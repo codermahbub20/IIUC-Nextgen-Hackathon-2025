@@ -1,0 +1,4 @@
+project_id = "ehtphzwdjnmrofkzmqdg"
+
+[functions.career-chat]
+verify_jwt = false
