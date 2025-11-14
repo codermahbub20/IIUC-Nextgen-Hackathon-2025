@@ -7,10 +7,12 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: "'Outfit', sans-serif",
+        sans: ["'Outfit'", "sans-serif"],
+      },
+      colors: {
+        primary: "#6366f1", // indigo-500
+      },
     },
   },
   plugins: [],
-}
-
-}
+};

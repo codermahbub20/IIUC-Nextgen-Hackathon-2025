@@ -1,6 +1,11 @@
-import React from 'react';
+'use client';
+
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import fedex from "../../../assets/Logos/fedex-51.svg";
+import walmart from "../../../assets/Logos/walmart-argentina.svg";
+import google from "../../../assets/Logos/google-1-1.svg";
 import {
-  MagnifyingGlassIcon,
   ChartBarIcon,
   PhoneIcon,
   PaintBrushIcon,
@@ -8,11 +13,10 @@ import {
   VideoCameraIcon,
   UserGroupIcon,
 } from '@heroicons/react/24/solid';
-// Assuming the user's preferred icons are from lucide-react (or similar)
-import { Building2, MapPin, Clock, Calendar, ExternalLink } from 'lucide-react'; 
+import { Building2, MapPin, Clock, Calendar, ExternalLink, MessageCircle, X } from 'lucide-react';
 import { useGetAllJobsQuery } from '../../../redux/features/jobs/jobsApi';
+import FAQSection from './FAQSection';
 
-// --- UPDATED TypeScript টাইপ (FetchedJob is the one we use now) ---
 export interface FetchedJob {
   _id: string;
   title: string;
@@ -20,30 +24,13 @@ export interface FetchedJob {
   location: string;
   requiredSkills: string[];
   experienceLevel: string;
-  jobType: 'Full-time' | 'Part-time' | 'Internship' | string; // Added specific jobType literals
+  jobType: 'Full-time' | 'Part-time' | 'Internship' | string;
   description: string;
   applyLink: string;
   careerTrack: string;
   postedAt: string;
 }
 
-// --- Data & Utility Functions ---
-
-// Placeholder function for formatting date (necessary for the card)
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-};
-
-// Hero সেকশনের ছবি
-const heroImages = [
-  'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=871&q=80',
-  'https://images.unsplash.com/photo-1581093450021-4a7360e9a6b5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=870&q=80',
-  'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=870&q=80',
-  'https://shomvob.com/_next/image?url=%2Fassets%2Fimages%2FHeroImages%2FHeroImage1.png&w=3840&q=75',
-];
-
-// Trending ক্যাটাগরি
 const trendingCategories = [
   { name: 'Sales Representative', icon: <ChartBarIcon className="h-5 w-5 mr-2" /> },
   { name: 'Call Center', icon: <PhoneIcon className="h-5 w-5 mr-2" /> },
@@ -53,213 +40,301 @@ const trendingCategories = [
   { name: 'Field Sales', icon: <UserGroupIcon className="h-5 w-5 mr-2" /> },
 ];
 
-// --- মূল Banner কম্পোনেন্ট ---
+const trustedLogos = [
+  { name: 'Dropbox', src: 'https://cdn.worldvectorlogo.com/logos/dropbox-2.svg' },
+  { name: 'FedEx', src: fedex },
+  { name: 'Walmart', src: walmart },
+  { name: 'HubSpot', src: 'https://cdn.worldvectorlogo.com/logos/hubspot-1.svg' },
+  { name: 'Google', src: google },
+  { name: 'Airbnb', src: 'https://cdn.worldvectorlogo.com/logos/airbnb.svg' },
+];
 
-const Banner: React.FC = () => {
+// Fixed formatDate function
+const formatDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  return isNaN(date.getTime())
+    ? 'Invalid Date'
+    : date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+};
 
-// Redux query to fetch jobs from backend
+export default function Banner() {
   const { data } = useGetAllJobsQuery({});
-  
-  // Directly use the array of individual job objects from the API response
   const jobsData: FetchedJob[] = data?.data || [];
-
+  const [email, setEmail] = useState('');
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      
-      {/* ========== 1. Navbar (Omitted for brevity) ========== */}
-      
-      <main>
-        {/* ========== 2. Hero Section (Unchanged) ========== */}
-        <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
+    <>
+      {/* ==== HERO SECTION ==== */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-gray-50 to-white py-20 lg:py-32">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
-            
-            {/* Hero Left Side: Content */}
-            <div>
+            {/* LEFT – Content */}
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.7 }}
+              className="space-y-6"
+            >
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-tight">
-                Where <span className="font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">Every Career</span> Journey Begins
+                Explore more than{' '}
+                <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+                  200+ remote job
+                </span>
               </h1>
-              <p className="mt-4 text-lg text-gray-600">
-                Find your next career move with thousands of job openings from top companies.
+
+              <p className="text-lg text-gray-600 max-w-xl">
+                Aliqua id fugiat nostrud irure ex duis ea quis id quis ad et. Sunt qui esse pariatur
+                duis deserunt mollit dolore cillum minim tempor enim.
               </p>
 
-              {/* Search Bar */}
-              <form className="mt-8 flex flex-col sm:flex-row gap-3 shadow-lg rounded-lg">
-                <div className="flex-grow flex items-center bg-white rounded-l-lg border border-gray-200 overflow-hidden">
-                  <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 mx-4" />
-                  <input
-                    type="text"
-                    placeholder="Job Title, Company or Location"
-                    className="w-full py-4 pr-4 text-gray-700 placeholder-gray-500 focus:outline-none"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="bg-gradient-to-r from-blue-500 to-violet-600 hover:from-blue-600 hover:to-violet-700  text-white px-8 py-4 rounded-r-lg font-semibold hover:bg-emerald-700 transition duration-150 flex-shrink-0"
-                >
-                  Find Jobs
+              <div className="flex flex-col sm:flex-row gap-3 max-w-md">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email address"
+                  className="flex-grow rounded-lg border border-gray-300 bg-white px-5 py-3.5 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                />
+                <button className="rounded-lg bg-black px-7 py-3.5 font-semibold text-white hover:bg-gray-800 transition shadow-md">
+                  Start Free Trial
                 </button>
-              </form>
+              </div>
 
-              {/* Trending Categories (Inlined) */}
+              <div className="flex flex-wrap gap-5 text-sm text-gray-600">
+                <motion.span whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full shadow-sm">
+                  <Calendar className="h-4 w-4 text-indigo-600" />
+                  30 Days free trial
+                </motion.span>
+                <motion.span whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full shadow-sm">
+                  <X className="h-4 w-4 text-indigo-600" />
+                  No credit card required
+                </motion.span>
+              </div>
+
               <div className="mt-10">
-                <h3 className="text-lg font-semibold text-gray-800">Trending Job Categories</h3>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  {trendingCategories.map((category) => (
-                    <a
-                      key={category.name}
+                <h3 className="text-lg font-semibold text-gray-800 mb-3">Trending Job Categories</h3>
+                <div className="flex flex-wrap gap-3">
+                  {trendingCategories.map((c, i) => (
+                    <motion.a
+                      key={c.name}
                       href="#"
-                      className="flex items-center bg-white text-gray-700 px-4 py-2 rounded-full border border-gray-300 text-sm font-medium 
-                                 hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-700 transition duration-150"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      whileHover={{ scale: 1.05 }}
+                      className="flex items-center rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:border-indigo-500 hover:text-indigo-600 transition"
                     >
-                      {category.icon}
-                      {category.name}
-                    </a>
+                      {c.icon}
+                      {c.name}
+                    </motion.a>
                   ))}
                 </div>
               </div>
-            </div>
+            </motion.div>
 
-            {/* Hero Right Side: Image Grid */}
-            <div className="hidden lg:grid grid-cols-2 gap-4">
-              {heroImages.map((src, index) => (
-                <img
-                  key={index}
-                  src={src}
-                  alt={`Job example ${index + 1}`}
-                  className={`rounded-lg shadow-xl object-cover w-full h-full ${
-                    index === 0 ? 'row-span-1' : ''
-                  } ${index === 1 ? 'row-span-1' : ''} ${
-                    index === 2 ? 'row-span-1' : ''
-                  } ${index === 3 ? 'row-span-1' : ''}
-                  transform hover:scale-105 transition-transform duration-300 ease-in-out
-                  `}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
+            {/* RIGHT – Image + Floating Elements */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="relative"
+            >
+              <img
+                src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1740&q=80"
+                alt="Remote worker"
+                className="rounded-2xl shadow-2xl w-full object-cover border border-gray-200"
+              />
 
-        {/* ========== 3. Premium Jobs Section (Updated to use Card Layout) ========== */}
-        <section className="bg-white py-16 lg:py-24 border-t border-gray-100">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-4xl font-bold text-gray-900 mb-8 text-center">
-              Latest Jobs
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-8">
-              
-              {/* Individual Job Cards */}
-              {jobsData.map((job) => (
-                 <div 
-                 key={job._id} 
-                 className="bg-white/95 rounded-2xl shadow-xl border border-indigo-100/60 overflow-hidden 
-                            transform hover:shadow-2xl hover:scale-[1.02] hover:border-indigo-400 
-                            transition-all duration-300 ease-in-out backdrop-blur-sm"
-               >
-                   <div className="p-7">
-                       
-                       {/* Job Header & Badge */}
-                       <div className="flex items-start justify-between mb-5">
-                           <div className="flex-1">
-                               <h3 className="text-2xl font-extrabold text-indigo-700 mb-1 leading-snug">
-                                   {job.title}
-                               </h3>
-                               <div className="flex items-center gap-2 text-slate-600">
-                                   <Building2 className="w-5 h-5 text-teal-500" />
-                                   <span className="font-semibold text-base">{job.company}</span>
-                               </div>
-                           </div>
-                           
-                           {/* Job Type Badge (Updated Colors) */}
-                           <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm ${
-                               job.jobType === 'Full-time' ? 'bg-teal-100 text-teal-800' :
-                               job.jobType === 'Part-time' ? 'bg-yellow-100 text-yellow-800' :
-                               job.jobType === 'Internship' ? 'bg-blue-100 text-blue-800' :
-                               'bg-purple-100 text-purple-800'
-                           }`}>
-                               {job.jobType}
-                           </span>
-                       </div>
-               
-                       {/* --- Job Details Container --- */}
-                       <div className="space-y-3 mb-5 border-y border-gray-100 py-4">
-                           <div className="flex items-center gap-3 text-sm text-gray-700">
-                               <MapPin className="w-4 h-4 text-indigo-500 flex-shrink-0" />
-                               <span>{job.location}</span>
-                           </div>
-                           <div className="flex items-center gap-3 text-sm text-gray-700">
-                               <Clock className="w-4 h-4 text-indigo-500 flex-shrink-0" />
-                               <span><span className="font-medium">{job.experienceLevel}</span> Experience Level</span>
-                           </div>
-                           <div className="flex items-center gap-3 text-sm text-gray-700">
-                               <Calendar className="w-4 h-4 text-indigo-500 flex-shrink-0" />
-                               <span>Posted on: <span className="font-medium">{formatDate(job.postedAt)}</span></span>
-                           </div>
-                       </div>
-               
-                       {/* Description */}
-                       <p className="text-sm text-gray-600 mb-5 line-clamp-3">
-                           {job.description}
-                       </p>
-               
-                       {/* Skills */}
-                       <div className="mb-6">
-                           <p className="text-xs font-bold text-gray-500 uppercase mb-3 tracking-wider">
-                               Key Skills
-                           </p>
-                           <div className="flex flex-wrap gap-2">
-                               {job.requiredSkills?.slice(0, 5).map((skill, index) => (
-                                   <span 
-                                     key={index} 
-                                     className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-semibold 
-                                                border border-indigo-200/50 hover:bg-indigo-100 transition"
-                                   >
-                                       {skill}
-                                   </span>
-                               ))}
-                               {job.requiredSkills.length > 5 && (
-                                    <span className="px-3 py-1 text-gray-500 rounded-full text-xs font-medium">
-                                       +{job.requiredSkills.length - 5} more
-                                   </span>
-                               )}
-                           </div>
-                       </div>
-               
-                       {/* Career Track & Apply Button */}
-                       <div className="flex justify-between items-center pt-3">
-                           <span className="inline-flex items-center px-4 py-1.5 bg-teal-50 text-teal-700 rounded-full text-xs font-semibold shadow-inner">
-                               {job.careerTrack}
-                           </span>
-                            <a
-                               href={job.applyLink}
-                               target="_blank"
-                               rel="noopener noreferrer"
-                               className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-indigo-500 to-violet-600 
-                                          hover:from-indigo-600 hover:to-violet-700 text-white rounded-lg font-semibold transition-all 
-                                          shadow-lg shadow-indigo-500/30 hover:shadow-indigo-600/40 text-sm"
-                           >
-                               Apply Now
-                               <ExternalLink className="w-4 h-4" />
-                           </a>
-                       </div>
-                   </div>
-               </div>
-              ))}
-            </div>
-
-            <div className="text-center mt-12">
-              <a
-                href="#"
-                className="text-emerald-600 font-semibold hover:text-emerald-800 transition duration-150 text-lg"
+              <motion.div
+                initial={{ opacity: 0, x: 50, y: -50 }}
+                animate={{ opacity: 1, x: 0, y: 0 }}
+                transition={{ delay: 0.9, type: 'spring', stiffness: 120 }}
+                className="absolute -right-6 top-1/4 w-64 rounded-xl bg-white p-4 shadow-xl border border-gray-100"
               >
-                View All Premium Jobs &rarr;
-              </a>
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
-  );
-};
+                <div className="flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 to-violet-500">
+                    <MessageCircle className="h-5 w-5 text-white" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-800">
+                    Hey! I’m looking for a <strong>UI/UX designer</strong>
+                  </p>
+                </div>
+                <div className="mt-2 h-2 w-full rounded-full bg-gray-200"></div>
+                <div className="mt-1 h-2 w-20 rounded-full bg-gray-200"></div>
+              </motion.div>
 
-export default Banner;
+              <motion.div
+                animate={{ y: [0, -15, 0] }}
+                transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+                className="absolute -left-8 top-16"
+              >
+                <img src="https://cdn.worldvectorlogo.com/logos/shopify.svg" alt="Shopify" className="h-12 w-12 drop-shadow-md" />
+              </motion.div>
+
+              <motion.div
+                animate={{ y: [0, -10, 0] }}
+                transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut', delay: 0.4 }}
+                className="absolute -right-10 top-32"
+              >
+                <img src="https://cdn.worldvectorlogo.com/logos/slack-1.svg" alt="Slack" className="h-10 w-10 drop-shadow-md" />
+              </motion.div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ==== TRUSTED BY SECTION ==== */}
+      <section className="bg-white py-16 border-t border-gray-100">
+        <div className="container mx-auto px-4 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="relative inline-block"
+          >
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+              Used <span className="text-indigo-600">1000+ company</span> around the world
+            </h2>
+            <svg className="absolute -top-10 left-1/2 -translate-x-1/2 w-28 h-14" viewBox="0 0 120 60" fill="none">
+              <path d="M 15 50 Q 60 15, 105 50" stroke="#fbbf24" strokeWidth="7" strokeLinecap="round" />
+              <path d="M 85 42 L 105 50 L 85 58" stroke="#fbbf24" strokeWidth="5" fill="none" />
+            </svg>
+          </motion.div>
+
+          <div className="mt-14 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6 lg:gap-10">
+            {trustedLogos.map((logo, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1, duration: 0.5 }}
+                whileHover={{ scale: 1.1 }}
+                className="group"
+              >
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 transition-all group-hover:shadow-lg group-hover:border-gray-200">
+                  <img src={logo.src} alt={logo.name} className="h-10 w-auto mx-auto object-contain" />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ==== JOB CARDS – ULTRA MODERN ==== */}
+      <section className="py-16 bg-gradient-to-b from-white to-indigo-50">
+        <div className="container mx-auto px-4">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-4xl font-bold text-center text-gray-900 mb-12"
+          >
+           Our Latest Job Post 
+          </motion.h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
+  {jobsData.slice(0,6).map((job, index) => (
+    <motion.div
+      key={job._id}
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: index * 0.1, duration: 0.6 }}
+      whileHover={{ y: -8 }}
+      className="group relative h-full"
+    >
+      {/* Glow Background on Hover */}
+      <div className="absolute inset-0  rounded-3xl opacity-0 group-hover:opacity-50 transition-opacity duration-300 blur-xl -z-10"></div>
+
+      {/* Card Container - Equal Height */}
+      <div className="h-full bg-white/90 backdrop-blur-xl rounded-3xl p-6 border border-indigo-100/50 transition-all duration-300 group-hover:border-indigo-300 group-hover:shadow-2xl flex flex-col">
+        
+        {/* Header */}
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex-1">
+            <h3 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent line-clamp-2">
+              {job.title}
+            </h3>
+            <p className="text-sm text-gray-600 mt-1 flex items-center gap-1">
+              <Building2 className="w-4 h-4 text-indigo-500" />
+              {job.company}
+            </p>
+          </div>
+          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap ${
+            job.jobType === 'Full-time' ? 'bg-emerald-100 text-emerald-700' :
+            job.jobType === 'Part-time' ? 'bg-amber-100 text-amber-700' :
+            job.jobType === 'Internship' ? 'bg-sky-100 text-sky-700' :
+            'bg-purple-100 text-purple-700'
+          }`}>
+            {job.jobType}
+          </span>
+        </div>
+
+        {/* Details */}
+        <div className="space-y-2 text-sm text-gray-600 mb-4">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+            <span className="truncate">{job.location}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+            <span>{job.experienceLevel} Level</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+            <span>{formatDate(job.postedAt)}</span>
+          </div>
+        </div>
+
+        {/* Description - Flexible */}
+        <p className="text-sm text-gray-600 line-clamp-2 mb-4 flex-1">
+          {job.description}
+        </p>
+
+        {/* Skills */}
+        <div className="mb-5">
+          <div className="flex flex-wrap gap-2">
+            {job.requiredSkills?.slice(0, 4).map((skill, i) => (
+              <motion.span
+                key={i}
+                whileHover={{ scale: 1.1 }}
+                className="px-3 py-1 bg-gradient-to-r from-indigo-50 to-violet-50 text-indigo-700 rounded-full text-xs font-medium border border-indigo-200/50"
+              >
+                {skill}
+              </motion.span>
+            ))}
+            {job.requiredSkills.length > 4 && (
+              <span className="px-3 py-1 text-gray-500 text-xs">+{job.requiredSkills.length - 4}</span>
+            )}
+          </div>
+        </div>
+
+        {/* Footer - Always at Bottom */}
+        <div className="flex justify-between items-center mt-auto pt-3 border-t border-gray-100">
+          <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
+            {job.careerTrack}
+          </span>
+          <a
+            href={job.applyLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500 to-violet-600 text-white rounded-xl font-medium text-sm transition-all hover:shadow-lg hover:shadow-indigo-500/30"
+          >
+            Apply
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      </div>
+    </motion.div>
+  ))}
+</div>
+        </div>
+      </section>
+
+      {/* ==== FAQ SECTION ==== */}
+      <FAQSection />
+    </>
+  );
+}
