@@ -9,9 +9,7 @@ import {
   Menu,
   X,
   NotebookIcon,
-  FocusIcon,
-  Users,
-  ServerCog
+  FocusIcon
 } from 'lucide-react';
 import { useGetUserQuery } from '../../redux/features/users/usersApi';
 import { useSelector } from 'react-redux';
@@ -33,7 +31,7 @@ interface DecodedToken {
 const userMenu: NavigationItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Resume Build", url: "/dashboard/resume-build", icon: NotebookIcon },
-  { title: "CareerBot", url: "/dashboard/CareerBot", icon: NotebookIcon },
+  // { title: "CareerBot", url: "/dashboard/CareerBot", icon: NotebookIcon },
   { title: "CVAssistant", url: "/dashboard/cvassistant", icon: NotebookIcon },
   { title: "Career Roadmap", url: "/dashboard/career-roadmap", icon: FocusIcon },
   { title: "My Skill Gap", url: "/dashboard/skill-gap", icon: FocusIcon },
