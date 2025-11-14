@@ -1,8 +1,6 @@
-
 import { model, Schema } from 'mongoose';
 import bcrypt from 'bcrypt';
 import { TUser, UserModel } from './user.interface';
-import config from '../../config';
 
 const userSchema = new Schema<TUser, UserModel>(
   {
@@ -35,19 +33,30 @@ const userSchema = new Schema<TUser, UserModel>(
     },
     experienceLevel: {
       type: String,
-      enum: ['Fresher', 'Junior', 'Mid', 'Senior'],
+      enum: [
+        'Fresher',
+        'Junior (0-2 years)',
+        'Mid-Level (2-5 years)',
+        'Senior (5+ years)',
+      ],
       required: [true, 'Experience level is required'],
     },
     preferredCareerTrack: {
       type: String,
       enum: [
         'Web Development',
-        'Data',
-        'Design',
-        'Marketing',
-        'Cybersecurity',
-        'AI/ML',
-        'Mobile App',
+        'Mobile Development',
+        'Data Science & Analytics',
+        'UI/UX Design',
+        'Graphic Design',
+        'Digital Marketing',
+        'Content Creation',
+        'Business Development',
+        'Project Management',
+        'HR & Recruitment',
+        'Finance & Accounting',
+        'Customer Support',
+        'Sales',
         'Other',
       ],
       required: [true, 'Preferred career track is required'],
@@ -88,18 +97,10 @@ const userSchema = new Schema<TUser, UserModel>(
 
 // 🔐 Hash password before saving
 userSchema.pre('save', async function (next) {
-  if (this.isModified('password')) {
-    this.password = await bcrypt.hash(
-      this.password,
-      Number(config.bcrypt_salt_rounds),
-    );
-  }
-  next();
-});
+  if (!this.isModified('password')) return next();
 
-// 🔐 Remove password after saving
-userSchema.post('save', function (doc, next) {
-  doc.password = '';
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
