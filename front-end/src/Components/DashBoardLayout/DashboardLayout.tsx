@@ -8,16 +8,13 @@ import {
   Rocket,
   Menu,
   X,
+  NotebookIcon,
   FocusIcon,
   Users,
-  ServerCog,
-  ListTodoIcon,
-  ChartNoAxesCombined,
-  MessageCircleCodeIcon,
-  Network,
-} from "lucide-react";
-import { useGetUserQuery } from "../../redux/features/users/usersApi";
-import { useSelector } from "react-redux";
+  ServerCog
+} from 'lucide-react';
+import { useGetUserQuery } from '../../redux/features/users/usersApi';
+import { useSelector } from 'react-redux';
 
 interface NavigationItem {
   title: string;
@@ -35,6 +32,9 @@ interface DecodedToken {
 // --- Menu for users ---
 const userMenu: NavigationItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Resume Build", url: "/dashboard/resume-build", icon: NotebookIcon },
+  { title: "CareerBot", url: "/dashboard/CareerBot", icon: NotebookIcon },
+  { title: "CVAssistant", url: "/dashboard/cvassistant", icon: NotebookIcon },
   { title: "Career Roadmap", url: "/dashboard/career-roadmap", icon: FocusIcon },
   { title: "My Skill Gap", url: "/dashboard/skill-gap", icon: FocusIcon },
   { title: "Chat Assistant", url: "/dashboard/chatbot", icon: FocusIcon },
@@ -45,10 +45,7 @@ const adminMenu: NavigationItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Manage Users", url: "/dashboard/manage-users", icon: Users },
   { title: "Service Page", url: "/dashboard/service-page", icon: ServerCog },
-  { title: "Tasks Page", url: "/dashboard/tasks-page", icon: ListTodoIcon },
-  { title: "Growth Page", url: "/dashboard/kpi-page", icon: ChartNoAxesCombined },
-  { title: "Admin Messages", url: "/dashboard/admin-message", icon: MessageCircleCodeIcon },
-  { title: "New Requests", url: "/dashboard/new-requested", icon: Network },
+ 
 ];
 
 const DashboardLayout: React.FC = () => {
