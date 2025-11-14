@@ -25,13 +25,13 @@ const RegisterSchema = z
       companyName: z
         .string()
         .nonempty('Company name is required')
-        .min(2, 'Company name must be at least 2 characters')
-        .max(255, 'Company name must be at most 255 characters'),
+        .min(2, 'Company name must be at least 2 c 55 characters'),
 
       email: z
         .string()
         .nonempty('Email is required')
         .email('Email must be a valid email'),
+        
 
       contactNumber: z
         .string()

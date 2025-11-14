@@ -7,6 +7,9 @@ import Resources from "../Components/Pages/Resources/Resources";
 import Profile from "../Components/Pages/Profile/Profile";
 import DashboardLayout from "../Components/DashBoardLayout/DashboardLayout";
 import Dashboard from "../Components/Pages/Dashboard/Dashboard";
+import ResumeBuild from "../Components/Dashboard/ResumeBuild";
+import CareerBot from "../Components/Dashboard/CareerBot";
+import CVAssistant from "../Components/Dashboard/CVAssistant";
 import CareerRoadmapGenerator from "../Components/Dashboard/CareerRoadmap";
 import SkillGapAnalysis from "../Components/Dashboard/SkillgapAnalysis";
 import Index from "../Components/ChatBot/Index";
@@ -45,6 +48,13 @@ export const router = createBrowserRouter([
     path: "/dashboard",
     element: <DashboardLayout />,
     children: [
+      { index: true, element: <Dashboard /> },
+      { path: "resume-build", element: <ResumeBuild /> },
+      { path: "careerbot", element: <CareerBot /> },
+      { path: "cvassistant", element: <CVAssistant /> },
+    ]
+  }
+  
       {
         index: true, 
         element: <Dashboard />,
