@@ -13,68 +13,31 @@ import CVAssistant from "../Components/Dashboard/CVAssistant";
 import CareerRoadmapGenerator from "../Components/Dashboard/CareerRoadmap";
 import SkillGapAnalysis from "../Components/Dashboard/SkillgapAnalysis";
 import Index from "../Components/ChatBot/Index";
-// import CareerBot from "../Components/Dashboard/ChatGptWrapper";
 
 export const router = createBrowserRouter([
   {
     path: "/",
     element: <MainLayout />,
     children: [
-      {
-        path: "/",
-        element: <Home />,
-      },
-      {
-        path: "/auth",
-        element: <AuthPage />,
-      },
-      {
-        path: "/jobs",
-        element: <Jobs />,
-      },
-      {
-        path: "/resources",
-        element: <Resources />,
-      },
-      {
-        path: "/profile",
-        element: <Profile />,
-      },
+      { path: "/", element: <Home /> },
+      { path: "/auth", element: <AuthPage /> },
+      { path: "/jobs", element: <Jobs /> },
+      { path: "/resources", element: <Resources /> },
+      { path: "/profile", element: <Profile /> },
     ],
   },
-
-  // ✅ Dashboard Layout Route
   {
     path: "/dashboard",
     element: <DashboardLayout />,
     children: [
-      { index: true, element: <Dashboard /> },
+      { index: true, element: <Dashboard /> }, // /dashboard
       { path: "resume-build", element: <ResumeBuild /> },
       { path: "careerbot", element: <CareerBot /> },
       { path: "cvassistant", element: <CVAssistant /> },
-    ]
-  }
-  
-      {
-        index: true, 
-        element: <Dashboard />,
-      },
-      {
-        path: "career-roadmap",
-        element: <CareerRoadmapGenerator />,
-      },
-      {
-        path: "skill-gap",
-        element: <SkillGapAnalysis />,
-      },
-      {
-        path: "resources", 
-        element: <Resources />,
-      },
-      {
-        path:"chatbot",
-        element:<Index/>
-      }
+      { path: "career-roadmap", element: <CareerRoadmapGenerator /> },
+      { path: "skill-gap", element: <SkillGapAnalysis /> },
+      { path: "resources", element: <Resources /> },
+      { path: "chatbot", element: <Index /> },
     ],
   },
 ]);
