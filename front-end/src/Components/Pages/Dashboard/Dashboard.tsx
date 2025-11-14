@@ -1,9 +1,10 @@
-import React from 'react';
+
+import RecommendedJobs from '../../Dashboard/RecomandedJobs';
 
 const Dashboard = () => {
     return (
         <div>
-            <h2>Dashboard Pages..</h2>
+            <RecommendedJobs/>
         </div>
     );
 };

@@ -1,32 +1,15 @@
-import React, { useState } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useLocation, Outlet, Link } from 'react-router-dom';
 import { 
   LayoutDashboard, 
-  Briefcase, 
-  BookOpen, 
-  User, 
   LogOut, 
   Rocket, 
-  Map, 
-  ClipboardCheck, 
-  Trophy, 
-  MessageCircle, 
-  TrendingUp, 
-  Mic, 
-  FileText, 
-  Building2, 
-  DollarSign, 
-  Video, 
-  Network, 
-  Sparkles, 
-  Zap, 
-  Calendar, 
-  Users, 
-  Lightbulb, 
-  Globe, 
-  GitCompare,
   Menu,
   X
 } from 'lucide-react';
+import { useGetUserQuery } from '../../redux/features/users/usersApi';
+import { useSelector } from 'react-redux';
 
 interface NavigationItem {
   title: string;
@@ -34,56 +17,89 @@ interface NavigationItem {
   icon: React.ElementType;
 }
 
-interface UserData {
-  full_name: string;
+interface DecodedToken {
+  id: string;
   email: string;
+  iat?: number;
+  exp?: number;
 }
 
 const navigationItems: NavigationItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Daily Actions", url: "/daily-actions", icon: Calendar },
-  { title: "Jobs", url: "/jobs", icon: Briefcase },
-  { title: "Gig Marketplace", url: "/gig-marketplace", icon: Zap },
-  { title: "Job Market Trends", url: "/job-market-trends", icon: TrendingUp },
-  { title: "Applications", url: "/applications", icon: ClipboardCheck },
-  { title: "Company Research", url: "/company-research", icon: Building2 },
-  { title: "Compare Offers", url: "/compare-offers", icon: GitCompare },
-  { title: "Resume Builder", url: "/resume-builder", icon: FileText },
-  { title: "Success Stories", url: "/success-stories", icon: Trophy },
-  { title: "Interview Prep", url: "/interview-prep", icon: Mic },
-  { title: "Salary Negotiation", url: "/salary-negotiation", icon: DollarSign },
-  { title: "Video Practice", url: "/video-practice", icon: Video },
-  { title: "Career Simulator", url: "/career-simulator", icon: Sparkles },
-  { title: "Career Roadmap", url: "/career-roadmap", icon: Map },
-  { title: "Networking Hub", url: "/networking-hub", icon: Network },
-  { title: "Cold Outreach", url: "/cold-outreach", icon: MessageCircle },
-  { title: "Peer Matching", url: "/peer-matching", icon: Users },
-  { title: "Hidden Skills", url: "/hidden-skills", icon: Lightbulb },
-  { title: "Remote Readiness", url: "/remote-readiness", icon: Globe },
-  { title: "Resources", url: "/resources", icon: BookOpen },
-  { title: "Achievements", url: "/achievements", icon: Trophy },
-  { title: "AI Advisor", url: "/ai-advisor", icon: MessageCircle },
-  { title: "Profile", url: "/profile", icon: User },
 ];
 
 const DashboardLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState('/dashboard');
+  const [userId, setUserId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
   
-  // Mock user data - replace with your auth logic
-  const user: UserData = {
-    full_name: "John Doe",
-    email: "john.doe@example.com"
-  };
+  // Get current page from location
+  const currentPage = location.pathname;
+  
+  const authState = useSelector((state: any) => state.auth);
+  const token = authState?.token || authState?.user?.data?.token || authState?.user?.token || null;
+  
+  console.log("Auth state in layout:", authState);
+  console.log("Token:", token);
+  
+  // Decode JWT token and extract user ID
+  useEffect(() => {
+    if (token) {
+      try {
+        // Decode JWT token (payload is the middle part)
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split('')
+            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+        const decoded: DecodedToken = JSON.parse(jsonPayload);
+        console.log("Decoded token:", decoded);
+        
+        // Set the user ID from decoded token
+        if (decoded.id) {
+          setUserId(decoded.id);
+        }
+      } catch (error) {
+        console.error("Error decoding token:", error);
+        setUserId(null);
+      }
+    } else {
+      setUserId(null);
+    }
+  }, [token]);
+  
+  // Fetch user data using the extracted user ID
+  const { data: userData, isLoading: isUserLoading, error: userError } = useGetUserQuery(userId || "", {
+    skip: !userId,
+  });
+
+  console.log("User ID:", userId);
+  console.log("User data in layout:", userData);
+  console.log("User loading:", isUserLoading);
+  console.log("User error:", userError);
+
+  // Get user info - try multiple possible data structures
+  const user = userData?.data || userData?.user || userData || {};
+  const displayName = user?.fullName || user?.full_name || user?.name || 'User';
+  const displayEmail = user?.email || 'user@example.com';
+  const displayInitial = displayName?.[0]?.toUpperCase() || 'U';
 
   const handleNavigation = (url: string) => {
-    setCurrentPage(url);
+    navigate(url);
     setIsSidebarOpen(false);
   };
 
   const handleLogout = () => {
     console.log("Logging out...");
-    // Add your logout logic here
+    // Clear tokens
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    // Navigate to login
+    navigate('/login');
   };
 
   const toggleSidebar = () => {
@@ -105,7 +121,8 @@ const DashboardLayout: React.FC = () => {
         {/* Sidebar Header */}
         <div className="border-b border-slate-200/60 p-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <Link to="/">
+             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-violet-600 rounded-xl flex items-center justify-center shadow-md">
                 <Rocket className="w-6 h-6 text-white" />
               </div>
@@ -114,6 +131,7 @@ const DashboardLayout: React.FC = () => {
                 <p className="text-xs text-slate-500">Your Path to Success</p>
               </div>
             </div>
+            </Link>
             <button
               onClick={toggleSidebar}
               className="md:hidden p-2 hover:bg-slate-100 rounded-lg transition-colors"
@@ -142,7 +160,7 @@ const DashboardLayout: React.FC = () => {
                       transition-all duration-200 text-left
                       ${
                         isActive
-                          ? 'bg-gradient-to-r from-blue-500 to-violet-600 text-white'
+                          ? 'bg-gradient-to-r from-blue-500 to-violet-600 text-white shadow-md'
                           : 'text-slate-700 hover:bg-blue-50'
                       }
                     `}
@@ -159,19 +177,29 @@ const DashboardLayout: React.FC = () => {
         {/* Sidebar Footer */}
         <div className="border-t border-slate-200/60 p-4 bg-white/80 backdrop-blur-sm">
           <div className="space-y-3">
-            <div className="flex items-center gap-3 px-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-violet-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <span className="text-blue-700 font-semibold text-sm">
-                  {user.full_name?.[0]?.toUpperCase() || 'U'}
-                </span>
+            {isUserLoading ? (
+              <div className="flex items-center gap-3 px-2">
+                <div className="w-10 h-10 bg-slate-200 rounded-full animate-pulse flex-shrink-0"></div>
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="h-4 bg-slate-200 rounded animate-pulse"></div>
+                  <div className="h-3 bg-slate-200 rounded animate-pulse w-3/4"></div>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-slate-900 text-sm truncate">
-                  {user.full_name || 'User'}
-                </p>
-                <p className="text-xs text-slate-500 truncate">{user.email}</p>
+            ) : (
+              <div className="flex items-center gap-3 px-2">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-violet-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-blue-700 font-semibold text-sm">
+                    {displayInitial}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-900 text-sm truncate">
+                    {displayName}
+                  </p>
+                  <p className="text-xs text-slate-500 truncate">{displayEmail}</p>
+                </div>
               </div>
-            </div>
+            )}
             <button
               onClick={handleLogout}
               className="w-full flex items-center justify-start gap-2 px-4 py-2 text-sm border border-red-200 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors"
@@ -206,68 +234,9 @@ const DashboardLayout: React.FC = () => {
           </div>
         </header>
 
-        {/* Page Content */}
-        <div className="flex-1 overflow-auto p-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="bg-white rounded-2xl shadow-lg p-8 border border-slate-200/60">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-violet-600 rounded-xl flex items-center justify-center shadow-md">
-                  <Rocket className="w-7 h-7 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-3xl font-bold text-slate-900">
-                    Welcome to CareerLaunch
-                  </h2>
-                  <p className="text-slate-600">
-                    Your comprehensive career development platform
-                  </p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-8">
-                {navigationItems.slice(0, 8).map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.title}
-                      onClick={() => handleNavigation(item.url)}
-                      className="p-5 bg-gradient-to-br from-slate-50 to-blue-50/50 rounded-xl border border-slate-200 hover:shadow-md hover:border-blue-300 transition-all text-left"
-                    >
-                      <Icon className="w-7 h-7 text-blue-600 mb-3" />
-                      <h3 className="font-semibold text-slate-900 mb-1">{item.title}</h3>
-                      <p className="text-xs text-slate-600">
-                        Explore {item.title.toLowerCase()}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-violet-50 rounded-xl border border-blue-200">
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                  🚀 Quick Stats
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">24</div>
-                    <div className="text-xs text-slate-600">Features</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-violet-600">100%</div>
-                    <div className="text-xs text-slate-600">Success Rate</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">24/7</div>
-                    <div className="text-xs text-slate-600">Support</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-violet-600">AI</div>
-                    <div className="text-xs text-slate-600">Powered</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Page Content - This is where child routes will render */}
+        <div className="flex-1 overflow-auto">
+          <Outlet />
         </div>
       </main>
     </div>
