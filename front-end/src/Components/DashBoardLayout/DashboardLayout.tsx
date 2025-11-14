@@ -6,7 +6,8 @@ import {
   LogOut, 
   Rocket, 
   Menu,
-  X
+  X,
+  NotebookIcon
 } from 'lucide-react';
 import { useGetUserQuery } from '../../redux/features/users/usersApi';
 import { useSelector } from 'react-redux';
@@ -26,7 +27,11 @@ interface DecodedToken {
 
 const navigationItems: NavigationItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Resume Build", url: "/dashboard/resume-build", icon: NotebookIcon },
+  { title: "CareerBot", url: "/dashboard/CareerBot", icon: NotebookIcon },
+  { title: "CVAssistant", url: "/dashboard/cvassistant", icon: NotebookIcon },
 ];
+
 
 const DashboardLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
