@@ -31,6 +31,7 @@ const navigationItems: NavigationItem[] = [
   { title: "Resume Build", url: "/dashboard/resume-build", icon: NotebookIcon },
   // { title: "CareerBot", url: "/dashboard/CareerBot", icon: NotebookIcon },
   { title: "CVAssistant", url: "/dashboard/cvassistant", icon: NotebookIcon },
+  { title: "Job Tracker", url: "/dashboard/job-tracker", icon: NotebookIcon },
   { title: "Career Roadmap", url: "/dashboard/career-roadmap", icon: FocusIcon },
   { title: "My Skill Gap", url: "/dashboard/skill-gap", icon: FocusIcon },
   { title: "Chat Assistant", url: "/dashboard/chatbot", icon: FocusIcon },
