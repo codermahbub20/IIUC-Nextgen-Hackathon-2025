@@ -6,16 +6,27 @@ import { toast } from 'sonner'; // or react-toastify
 import { useNavigate } from 'react-router-dom';
 import { useRegisterMutation } from '../../../redux/features/auth/authApi';
 
-export type TExperienceLevel = "Fresher" | "Junior" | "Mid" | "Senior";
+export type TExperienceLevel = 
+"Fresher"|
+"Junior (0-2 years)"|
+  "Mid-Level (2-5 years)"|
+  "Senior (5+ years)"
+
 export type TCareerTrack =
-  | "Web Development"
-  | "Data"
-  | "Design"
-  | "Marketing"
-  | "Cybersecurity"
-  | "AI/ML"
-  | "Mobile App"
-  | "Other";
+  "Web Development"|
+  "Mobile Development"|
+  "Data Science & Analytics"|
+  "UI/UX Design"|
+  "Graphic Design"|
+  "Digital Marketing"|
+  "Content Creation"|
+  "Business Development"|
+  "Project Management"|
+  "HR & Recruitment"|
+  "Finance & Accounting"|
+  "Customer Support"|
+  "Sales"|
+  "Other"
 
 interface SignUpFormProps {
   isDarkMode: boolean;
