@@ -14,6 +14,7 @@ import CVAssistant from "../Components/Dashboard/CVAssistant";
 import CareerRoadmapGenerator from "../Components/Dashboard/CareerRoadmap";
 import SkillGapAnalysis from "../Components/Dashboard/SkillgapAnalysis";
 import Index from "../Components/ChatBot/Index";
+import JobTracker from "../Components/Dashboard/JobTracker";
 
 export const router = createBrowserRouter([
   // ----------------------
@@ -41,6 +42,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Dashboard /> }, // /dashboard
       { path: "resume-build", element: <ResumeBuild /> },
       // { path: "careerbot", element: <CareerBot /> },
+      { path: "job-tracker", element: <JobTracker /> },
       { path: "cvassistant", element: <CVAssistant /> },
       { path: "career-roadmap", element: <CareerRoadmapGenerator /> },
       { path: "skill-gap", element: <SkillGapAnalysis /> },
