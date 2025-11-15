@@ -1,8 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, ChevronDown, ChevronLeft, ChevronRight, ArrowRight, Clock, Tag, ExternalLink, BookOpen, Star } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { Search,  Play, ExternalLink, BookOpen, Star,  FileText, Sparkles } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useGetAllResourcesQuery } from '../../../redux/features/Resources/resourcesApi';
+
+import axios from 'axios';
+import { useGetUserQuery } from '../../../redux/features/users/usersApi';
+
+const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
 
 interface LearningResource {
   _id: string;
@@ -11,509 +16,404 @@ interface LearningResource {
   url: string;
   relatedSkills: string[];
   cost: 'Free' | 'Paid';
-  description?: string;
+  type: 'course' | 'youtube' | 'documentation';
+  thumbnail?: string;
   duration?: string;
-  careerTrack?: string;
+  viewCount?: string;
+  publishedAt?: string;
 }
 
-interface Rating {
-  resourceId: string;
-  rating: number;
-  timestamp: number;
-}
-
+interface Rating { resourceId: string; rating: number; timestamp: number; }
 const STORAGE_KEY = 'resource_ratings';
 
-// --- Star Rating Component ---
-const StarRating: React.FC<{
-  rating: number;
-  onRate: (rating: number) => void;
-  readonly?: boolean;
-  size?: 'sm' | 'md';
-}> = ({ rating, onRate, readonly = false, size = 'md' }) => {
-  const [hoverRating, setHoverRating] = useState(0);
-  const currentRating = hoverRating || rating;
+// Next Skill Suggestions based on current skills
+const SKILL_PROGRESSION: Record<string, string[]> = {
+  'HTML': ['CSS', 'JavaScript', 'Tailwind CSS'],
+  'CSS': ['Tailwind CSS', 'JavaScript', 'React'],
+  'JavaScript': ['React', 'TypeScript', 'Node.js'],
+  'React': ['Next.js', 'TypeScript', 'Redux'],
+  'Node.js': ['Express.js', 'MongoDB', 'TypeScript'],
+  'MongoDB': ['Mongoose', 'Next.js', 'Authentication'],
+  'Tailwind CSS': ['Framer Motion', 'Responsive Design', 'React'],
+};
 
-  const starSize = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5';
-  const containerSize = size === 'sm' ? 'text-xs' : 'text-sm';
+const StarRating: React.FC<{ rating: number; onRate: (r: number) => void; readonly?: boolean; size?: 'sm' | 'md' }> = ({ rating, onRate, readonly = false, size = 'md' }) => {
+  const [hover, setHover] = useState(0);
+  const current = hover || rating;
+  const sizeClass = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5';
 
   return (
-    <div className={`flex items-center gap-1 ${containerSize}`}>
+    <div className="flex items-center gap-1">
       {[1, 2, 3, 4, 5].map((star) => (
         <motion.button
           key={star}
           whileHover={{ scale: readonly ? 1 : 1.2 }}
           whileTap={{ scale: readonly ? 1 : 0.9 }}
           onClick={() => !readonly && onRate(star)}
-          onMouseEnter={() => !readonly && setHoverRating(star)}
-          onMouseLeave={() => !readonly && setHoverRating(0)}
+          onMouseEnter={() => !readonly && setHover(star)}
+          onMouseLeave={() => !readonly && setHover(0)}
           disabled={readonly}
-          className={`transition-all ${readonly ? 'cursor-default' : 'cursor-pointer'}`}
         >
-          <Star
-            className={`${starSize} transition-all ${
-              star <= currentRating
-                ? 'fill-yellow-400 text-yellow-400'
-                : 'text-gray-300'
-            }`}
-          />
+          <Star className={`${sizeClass} ${star <= current ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
         </motion.button>
       ))}
-      {!readonly && <span className="ml-2 text-gray-500">Rate</span>}
     </div>
   );
 };
 
-// --- Resource Card ---
-const ResourceCard: React.FC<{ 
-  resource: LearningResource;
-  userRating: number;
-  avgRating: number;
-  totalRatings: number;
-  onRate: (resourceId: string, rating: number) => void;
-}> = ({ resource, userRating, avgRating, totalRatings, onRate }) => {
-  const costColor = resource.cost === 'Free' 
-    ? 'from-emerald-500 to-green-600' 
-    : 'from-purple-500 to-pink-600';
-
-  const platformIcon = resource.platform.toLowerCase().includes('youtube') ? 'https://cdn.worldvectorlogo.com/logos/youtube-2.svg'
-    : resource.platform.toLowerCase().includes('udemy') ? 'https://cdn.worldvectorlogo.com/logos/udemy.svg'
-    : resource.platform.toLowerCase().includes('coursera') ? 'https://cdn.worldvectorlogo.com/logos/coursera.svg'
-    : 'https://cdn.worldvectorlogo.com/logos/book-1.svg';
+const YouTubeCard: React.FC<{ video: any; userRating: number; onRate: (id: string, r: number) => void }> = ({ video, userRating, onRate }) => {
+  const videoId = video.id?.videoId || video._id.replace('yt_', '');
+  const thumbnail = video.snippet?.thumbnails?.high?.url ||
+                   video.snippet?.thumbnails?.medium?.url ||
+                   video.thumbnail ||
+                   `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
 
   return (
-    <motion.div
-      whileHover={{ y: -8, scale: 1.02 }}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="group relative"
-    >
-      {/* Glow Effect */}
-      <div className="absolute inset-0  rounded-3xl opacity-0 group-hover:opacity-70 blur-2xl hover:shadow-xl  transition-opacity duration-300 -z-10"></div>
-
-      <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 border border-white/20 transition-all duration-300  h-full flex flex-col">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3 flex-1">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 p-2 flex items-center justify-center shadow-md">
-              <img src={platformIcon} alt={resource.platform} className="w-8 h-8 object-contain" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-gray-900 line-clamp-2 group-hover:text-indigo-700 transition-colors">
-                {resource.title}
-              </h3>
-              <p className="text-sm text-gray-600 flex items-center gap-1 mt-1">
-                <BookOpen className="w-3.5 h-3.5" />
-                {resource.platform}
-              </p>
+    <motion.div whileHover={{ y: -8, scale: 1.02 }} className="group relative h-full">
+      <div className="bg-white/90 backdrop-blur-xl rounded-3xl overflow-hidden border border-white/20 shadow-lg h-full flex flex-col">
+        <a href={`https://www.youtube.com/watch?v=${videoId}`} target="_blank" rel="noopener noreferrer" className="block relative">
+          <img src={thumbnail} alt={video.title} className="w-full h-48 object-cover" loading="lazy" />
+          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center shadow-2xl">
+              <Play className="w-8 h-8 text-white ml-1" fill="white" />
             </div>
           </div>
-          <span className={`px-3 py-1.5 rounded-full text-xs font-bold text-white bg-gradient-to-r ${costColor} shadow-sm`}>
-            {resource.cost}
-          </span>
-        </div>
-
-        {/* Duration & Track */}
-        <div className="flex items-center gap-4 text-xs text-gray-600 mb-4">
-          {resource.duration && (
-            <div className="flex items-center gap-1">
-              <Clock className="w-4 h-4 text-indigo-500" />
-              <span>{resource.duration}</span>
-            </div>
-          )}
-          {resource.careerTrack && (
-            <div className="flex items-center gap-1">
-              <Tag className="w-4 h-4 text-violet-500" />
-              <span className="font-medium text-violet-700">{resource.careerTrack}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Rating Display */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <StarRating rating={avgRating} readonly size="sm" />
-            <span className="text-xs text-gray-500">({totalRatings})</span>
-          </div>
-          {userRating > 0 && (
-            <span className="text-xs font-medium text-indigo-600">
-              You rated: {userRating} stars
+          {video.duration && (
+            <span className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+              {video.duration}
             </span>
           )}
-        </div>
-
-        {/* Skills */}
-        <div className="flex flex-wrap gap-2 mb-5">
-          {resource.relatedSkills?.slice(0, 4).map((skill, i) => (
-            <motion.span
-              key={i}
-              whileHover={{ scale: 1.1 }}
-              className="px-3 py-1 bg-gradient-to-r from-indigo-50 to-violet-50 text-indigo-700 rounded-full text-xs font-semibold border border-indigo-200/50"
-            >
-              {skill}
-            </motion.span>
-          ))}
-          {resource.relatedSkills.length > 4 && (
-            <span className="px-3 py-1 text-gray-500 text-xs">+{resource.relatedSkills.length - 4}</span>
-          )}
-        </div>
-
-        {/* Interactive Rating */}
-        <div className="mb-4">
-          <StarRating
-            rating={userRating}
-            onRate={(rating) => onRate(resource._id, rating)}
-          />
-        </div>
-
-        {/* CTA Button */}
-        <a
-          href={resource.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-auto flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white rounded-xl font-semibold text-sm transition-all shadow-md hover:shadow-lg"
-        >
-          Start Learning
-          <ExternalLink className="w-4 h-4" />
+          <div className="absolute top-2 left-2">
+            <span className="px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-full">YouTube</span>
+          </div>
         </a>
+
+        <div className="p-5 flex flex-col flex-grow">
+          <h3 className="text-lg font-bold text-gray-900 line-clamp-2 group-hover:text-red-600 transition-colors">
+            {video.title || video.snippet?.title}
+          </h3>
+          <p className="text-sm text-gray-600 mt-1">{video.snippet?.channelTitle || 'YouTube'}</p>
+
+          <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
+            {video.viewCount && <span>{video.viewCount}</span>}
+            {video.publishedAt && <span>• {new Date(video.publishedAt).toLocaleDateString()}</span>}
+          </div>
+
+          <div className="flex flex-wrap gap-2 mt-4">
+            {video.relatedSkills?.slice(0, 3).map((skill: string) => (
+              <span key={skill} className="px-3 py-1 bg-red-50 text-red-700 rounded-full text-xs font-semibold border border-red-200">
+                {skill}
+              </span>
+            ))}
+          </div>
+
+          <div className="mt-auto pt-4 space-y-3">
+            <StarRating rating={userRating} onRate={(r) => onRate(video._id, r)} />
+            <a href={`https://www.youtube.com/watch?v=${videoId}`} target="_blank" rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl font-semibold text-sm transition-all shadow-md">
+              Watch Video <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
+        </div>
       </div>
     </motion.div>
   );
 };
 
-// --- Pagination ---
-const Pagination: React.FC<{
-  currentPage: number,
-  totalPages: number,
-  onPageChange: (page: number) => void
-}> = ({ currentPage, totalPages, onPageChange }) => {
-  const getVisiblePages = () => {
-    const delta = 2;
-    const range = [];
-    for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
-      range.push(i);
-    }
-    if (currentPage - delta > 2) range.unshift('...');
-    if (currentPage + delta < totalPages - 1) range.push('...');
-    range.unshift(1);
-    if (totalPages > 1) range.push(totalPages);
-    return range;
+const ResourceCard: React.FC<{ resource: LearningResource; userRating: number; onRate: (id: string, r: number) => void }> = ({ resource, userRating, onRate }) => {
+  if (resource.type === 'youtube') return <YouTubeCard video={resource} userRating={userRating} onRate={onRate} />;
+
+  const icons: Record<string, JSX.Element> = {
+    'documentation': <FileText className="w-8 h-8 text-blue-600" />,
+    'course': <BookOpen className="w-8 h-8 text-indigo-600" />,
   };
 
   return (
-    <nav className="flex items-center justify-center gap-2 mt-12">
-      <button
-        onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage === 1}
-        className="p-2.5 rounded-xl bg-white shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-      >
-        <ChevronLeft className="w-5 h-5 text-gray-600" />
-      </button>
+    <motion.div whileHover={{ y: -8, scale: 1.02 }} className="group relative h-full">
+      <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 border border-white/20 h-full flex flex-col">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 p-2 flex items-center justify-center shadow-md">
+              {icons[resource.type] || <BookOpen className="w-8 h-8 text-white" />}
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 line-clamp-2 group-hover:text-indigo-700">
+                {resource.title}
+              </h3>
+              <p className="text-sm text-gray-600">{resource.platform}</p>
+            </div>
+          </div>
+          <span className={`px-3 py-1.5 rounded-full text-xs font-bold text-white ${resource.cost === 'Free' ? 'bg-green-600' : 'bg-purple-600'}`}>
+            {resource.cost}
+          </span>
+        </div>
 
-      {getVisiblePages().map((page, index) => (
-        <button
-          key={index}
-          onClick={() => typeof page === 'number' && onPageChange(page)}
-          disabled={page === '...'}
-          className={`w-11 h-11 rounded-xl text-sm font-medium transition-all ${
-            page === currentPage
-              ? 'bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow-md'
-              : page === '...'
-              ? 'cursor-default text-gray-400'
-              : 'bg-white text-gray-700 hover:bg-gray-50 shadow-sm hover:shadow-md'
-          }`}
-        >
-          {page}
-        </button>
-      ))}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {resource.relatedSkills?.slice(0, 4).map((skill) => (
+            <span key={skill} className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-semibold border border-indigo-200">
+              {skill}
+            </span>
+          ))}
+        </div>
 
-      <button
-        onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className="p-2.5 rounded-xl bg-white shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-      >
-        <ChevronRight className="w-5 h-5 text-gray-600" />
-      </button>
-    </nav>
+        <div className="mt-auto space-y-3">
+          <StarRating rating={userRating} onRate={(r) => onRate(resource._id, r)} />
+          <a href={resource.url} target="_blank" rel="noopener noreferrer"
+            className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-500 to-violet-600 text-white rounded-xl font-semibold text-sm transition-all shadow-md">
+            {resource.type === 'documentation' ? 'Read Docs' : 'Start Learning'} <ExternalLink className="w-4 h-4" />
+          </a>
+        </div>
+      </div>
+    </motion.div>
   );
 };
 
-// --- Main Component ---
 const Resources: React.FC = () => {
-  const { data, isLoading, isError } = useGetAllResourcesQuery({});
-  const [filteredResources, setFilteredResources] = useState<LearningResource[]>([]);
+  const { data, isLoading } = useGetAllResourcesQuery({});
+  const [allItems, setAllItems] = useState<LearningResource[]>([]);
+  const [filteredItems, setFilteredItems] = useState<LearningResource[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSkill, setSelectedSkill] = useState('');
-  const [isSkillDropdownOpen, setIsSkillDropdownOpen] = useState(false);
+  const [selectedType, setSelectedType] = useState<'all' | 'course' | 'youtube' | 'documentation'>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [resourcesPerPage] = useState(6);
   const [ratings, setRatings] = useState<Record<string, Rating[]>>({});
-  const skillDropdownRef = useRef<HTMLDivElement>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const itemsPerPage = 6;
 
-  const allResources: LearningResource[] = data?.data || [];
+  const { data: userData } = useGetUserQuery(userId || "", { skip: !userId });
+  const userSkills = Array.isArray(userData?.data?.skills) ? userData.data.skills : [];
 
-  // Load ratings from localStorage
+  // Get suggested next skills
+  const suggestedSkills = Array.from(new Set(
+    userSkills.flatMap((skill: string | number) => SKILL_PROGRESSION[skill] || [])
+      .filter((s: any) => !userSkills.includes(s))
+  )).slice(0, 5);
+
+  // Decode token
+  useEffect(() => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (token) {
+      try {
+        const decoded = JSON.parse(atob(token.split('.')[1]));
+        setUserId(decoded.id);
+      } catch (e) { console.error(e); }
+    }
+  }, []);
+
+  // Load ratings
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      const parsed = JSON.parse(saved);
-      const ratingsMap: Record<string, Rating[]> = {};
-      parsed.forEach((r: Rating) => {
-        if (!ratingsMap[r.resourceId]) ratingsMap[r.resourceId] = [];
-        ratingsMap[r.resourceId].push(r);
-      });
-      setRatings(ratingsMap);
+      try {
+        const parsed = JSON.parse(saved);
+        const map: Record<string, Rating[]> = {};
+        parsed.forEach((r: Rating) => {
+          if (!map[r.resourceId]) map[r.resourceId] = [];
+          map[r.resourceId].push(r);
+        });
+        setRatings(map);
+      } catch (e) { console.error(e); }
     }
   }, []);
 
-  // Save ratings to localStorage
+  // Save ratings
   useEffect(() => {
-    const flatRatings = Object.values(ratings).flat();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(flatRatings));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.values(ratings).flat()));
   }, [ratings]);
 
-  const allSkills = [
-    ...new Set(allResources.flatMap((res) => res.relatedSkills || [])),
-  ].sort();
-
-  // Filter Logic
+  // Fetch fresh YouTube videos on every mount
   useEffect(() => {
-    if (!allResources) return;
+    const fetchFreshContent = async () => {
+      const dbResources = (data?.data || []).map((r: any) => ({
+        ...r,
+        type: r.platform.toLowerCase().includes('youtube') ? 'youtube' : 
+              r.platform.toLowerCase().includes('docs') ? 'documentation' : 'course'
+      }));
 
-    let resources = [...allResources];
-    const lowerCaseSearchTerm = searchTerm.toLowerCase();
+      let youtubeVideos: LearningResource[] = [];
+
+      if (YOUTUBE_API_KEY && userSkills.length > 0) {
+        const queries = userSkills.slice(0, 3).map((s: any) => `${s} tutorial 2025`);
+        const videoIds: string[] = [];
+
+        for (const q of queries) {
+          try {
+            const res = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+              params: { part: 'snippet', q, type: 'video', maxResults: 4, key: YOUTUBE_API_KEY }
+            });
+
+            res.data.items.forEach((item: any) => {
+              if (item.id?.videoId) videoIds.push(item.id.videoId);
+            });
+          } catch (e) { console.warn('YouTube search failed', e); }
+        }
+
+        if (videoIds.length > 0) {
+          try {
+            const details = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
+              params: { part: 'contentDetails,statistics,snippet', id: videoIds.join(','), key: YOUTUBE_API_KEY }
+            });
+
+            youtubeVideos = details.data.items.map((item: any) => ({
+              _id: `yt_${item.id}`,
+              title: item.snippet.title,
+              platform: 'YouTube',
+              url: `https://www.youtube.com/watch?v=${item.id}`,
+              relatedSkills: userSkills,
+              cost: 'Free' as const,
+              type: 'youtube' as const,
+              thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url,
+              duration: item.contentDetails?.duration ? formatDuration(item.contentDetails.duration) : null,
+              viewCount: item.statistics?.viewCount ? formatViews(item.statistics.viewCount) : null,
+              publishedAt: item.snippet.publishedAt,
+            }));
+          } catch (e) { console.warn('YouTube details failed', e); }
+        }
+      }
+
+      // Shuffle + limit for freshness
+      const combined = [...dbResources, ...youtubeVideos];
+      setAllItems(combined.sort(() => Math.random() - 0.5));
+    };
+
+    fetchFreshContent();
+  }, [data, userSkills, YOUTUBE_API_KEY]);
+
+  const formatDuration = (iso: string) => {
+    const match = iso.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+    if (!match) return null;
+    const h = match[1] ? match[1].replace('H', '') + ':' : '';
+    const m = (match[2] || '0M').replace('M', '').padStart(2, '0');
+    const s = (match[3] || '0S').replace('S', '').padStart(2, '0');
+    return `${h}${m}:${s}`;
+  };
+
+  const formatViews = (n: string) => {
+    const num = parseInt(n);
+    return num > 1000000 ? `${(num / 1000000).toFixed(1)}M` : num > 1000 ? `${(num / 1000).toFixed(1)}K` : num;
+  };
+
+  // Filter
+  useEffect(() => {
+    let items = allItems;
 
     if (searchTerm) {
-      resources = resources.filter(res =>
-        res.title.toLowerCase().includes(lowerCaseSearchTerm) ||
-        res.platform.toLowerCase().includes(lowerCaseSearchTerm) ||
-        res.relatedSkills?.some(skill =>
-          skill.toLowerCase().includes(lowerCaseSearchTerm)
-        )
-      );
+      const term = searchTerm.toLowerCase();
+      items = items.filter(i => i.title.toLowerCase().includes(term) || i.relatedSkills?.some(s => s.toLowerCase().includes(term)));
     }
 
     if (selectedSkill) {
-      resources = resources.filter(res => res.relatedSkills?.includes(selectedSkill));
+      items = items.filter(i => i.relatedSkills?.includes(selectedSkill));
     }
 
-    setFilteredResources(resources);
+    if (selectedType !== 'all') {
+      items = items.filter(i => i.type === selectedType);
+    }
+
+    setFilteredItems(items);
     setCurrentPage(1);
-  }, [searchTerm, selectedSkill, allResources]);
+  }, [allItems, searchTerm, selectedSkill, selectedType]);
 
-  // Close dropdown on click outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (skillDropdownRef.current && !skillDropdownRef.current.contains(event.target as Node)) {
-        setIsSkillDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  const allSkills = [...new Set(allItems.flatMap(i => i.relatedSkills || []))].sort();
 
-  const handleRating = (resourceId: string, rating: number) => {
-    setRatings(prev => {
-      const newRatings = { ...prev };
-      if (!newRatings[resourceId]) newRatings[resourceId] = [];
-      
-      // Remove previous rating from this user (simulate one rating per user)
-      newRatings[resourceId] = newRatings[resourceId].filter(r => r.timestamp > Date.now() - 1000 * 60 * 60 * 24); // last 24h
-      newRatings[resourceId].push({ resourceId, rating, timestamp: Date.now() });
-      
-      return newRatings;
-    });
+  const handleRating = (id: string, rating: number) => {
+    setRatings(prev => ({
+      ...prev,
+      [id]: [{ resourceId: id, rating, timestamp: Date.now() }]
+    }));
   };
 
-  const getUserRating = (resourceId: string): number => {
-    const userRatings = ratings[resourceId] || [];
-    const recent = userRatings.sort((a, b) => b.timestamp - a.timestamp)[0];
-    return recent?.rating || 0;
-  };
+  const getUserRating = (id: string) => ratings[id]?.[0]?.rating || 0;
 
-  const getAverageRating = (resourceId: string): number => {
-    const resourceRatings = ratings[resourceId] || [];
-    if (resourceRatings.length === 0) return 0;
-    const sum = resourceRatings.reduce((acc, r) => acc + r.rating, 0);
-    return Math.round((sum / resourceRatings.length) * 10) / 10;
-  };
+  const currentItems = filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
 
-  const getTotalRatings = (resourceId: string): number => {
-    return (ratings[resourceId] || []).length;
-  };
-
-  if (isLoading)
-    return (
-      <div className="min-h-screen flex justify-center items-center bg-gradient-to-br from-indigo-50 via-white to-violet-50">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-indigo-700 font-medium">Loading resources...</p>
-        </div>
-      </div>
-    );
-
-  if (isError)
-    return (
-      <div className="min-h-screen flex justify-center items-center bg-gradient-to-br from-indigo-50 via-white to-violet-50">
-        <div className="text-center max-w-md">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-red-600 text-2xl">Warning</span>
-          </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Failed to Load Resources</h3>
-          <p className="text-gray-600">Please try again later.</p>
-        </div>
-      </div>
-    );
-
-  const totalPages = Math.ceil(filteredResources.length / resourcesPerPage);
-  const currentResources = filteredResources.slice(
-    (currentPage - 1) * resourcesPerPage,
-    currentPage * resourcesPerPage
-  );
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>;
 
   return (
-    <div className="bg-gradient-to-br from-indigo-50 via-white to-violet-50 min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 min-h-screen py-12">
+      <div className="max-w-7xl mx-auto px-4">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
-        >
-          <h1 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600 mb-4">
-            Learning Resources
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10">
+          <h1 className="text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+            Your Smart Learning Hub
           </h1>
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            Master in-demand skills with curated courses. <strong>Rate</strong> what you learn!
+          <p className="mt-4 text-lg text-gray-600">
+            {userSkills.length > 0 ? `Personalized for your skills: ${userSkills.join(', ')}` : 'Discover courses, videos & docs'}
           </p>
         </motion.div>
 
-        {/* Filters Bar */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="flex flex-col md:flex-row gap-4 mb-10"
-        >
+        {/* Next Skill Suggestion */}
+        {suggestedSkills.length > 0 && (
+          <div className="mb-8 bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-6 border border-purple-200">
+            <div className="flex items-center gap-3">
+              <Sparkles className="w-8 h-8 text-purple-600" />
+              <div>
+                <h3 className="text-xl font-bold text-purple-900">Next Skills to Learn</h3>
+                <p className="text-purple-700">Based on your current skills, consider learning:</p>
+                <div className="flex flex-wrap gap-3 mt-3">
+                  {suggestedSkills.map(skill => (
+                    <span key={skill} className="px-4 py-2 bg-purple-600 text-white rounded-full font-medium text-sm">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Filters */}
+        <div className="flex flex-col lg:flex-row gap-4 mb-8">
           <div className="relative flex-grow">
             <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by course, platform, or skill..."
-              className="w-full pl-12 pr-6 py-4 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-all"
+              type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Search resources..." className="w-full pl-12 pr-6 py-4 bg-white/80 backdrop-blur rounded-2xl border focus:ring-2 focus:ring-indigo-500 outline-none"
             />
-            <Search className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           </div>
 
-          {/* Skill Filter Dropdown */}
-          <div className="relative" ref={skillDropdownRef}>
-            <button
-              onClick={() => setIsSkillDropdownOpen(!isSkillDropdownOpen)}
-              className="w-full md:w-64 flex items-center justify-between pl-5 pr-4 py-4 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all"
-            >
-              <span className="text-gray-700 font-medium">{selectedSkill || 'Filter by Skill'}</span>
-              <ChevronDown
-                className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
-                  isSkillDropdownOpen ? 'rotate-180' : ''
-                }`}
-              />
-            </button>
+          <div className="flex gap-3">
+            <select value={selectedType} onChange={e => setSelectedType(e.target.value as any)}
+              className="px-5 py-4 bg-white/80 backdrop-blur rounded-2xl border focus:ring-2 focus:ring-indigo-500 outline-none">
+              <option value="all">All Resources</option>
+              <option value="course">Courses</option>
+              <option value="youtube">YouTube Videos</option>
+              <option value="documentation">Documentation</option>
+            </select>
 
-            <AnimatePresence>
-              {isSkillDropdownOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="absolute top-full mt-2 w-full bg-white rounded-2xl shadow-xl ring-1 ring-black ring-opacity-5 z-50 max-h-64 overflow-y-auto"
-                >
-                  <div className="py-2">
-                    <button
-                      onClick={() => {
-                        setSelectedSkill('');
-                        setIsSkillDropdownOpen(false);
-                      }}
-                      className="w-full text-left block px-5 py-3 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
-                    >
-                      All Skills
-                    </button>
-                    {allSkills.map((skill) => (
-                      <button
-                        key={skill}
-                        onClick={() => {
-                          setSelectedSkill(skill);
-                          setIsSkillDropdownOpen(false);
-                        }}
-                        className="w-full text-left block px-5 py-3 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
-                      >
-                        {skill}
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </  div>
-        </motion.div>
-
-        {/* Results Count */}
-        <div className="mb-6 text-sm text-gray-600">
-          Showing <span className="font-semibold text-indigo-700">{filteredResources.length}</span> resources
-          {selectedSkill && ` for "${selectedSkill}"`}
+            <select value={selectedSkill} onChange={e => setSelectedSkill(e.target.value)}
+              className="px-5 py-4 bg-white/80 backdrop-blur rounded-2xl border focus:ring-2 focus:ring-indigo-500 outline-none">
+              <option value="">All Skills</option>
+              {allSkills.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
         </div>
 
-        {/* Resources Grid */}
-        <main>
-          {filteredResources.length > 0 ? (
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-           {currentResources.map((resource, index) => (
-             <motion.div
-               key={resource._id}
-               initial={{ opacity: 0, y: 20 }}
-               animate={{ opacity: 1, y: 0 }}
-               transition={{ delay: index * 0.1 }}
-               /* ← NEW → force every card to fill its grid cell */
-               className="h-full"
-             >
-               <ResourceCard
-                 resource={resource}
-                 userRating={getUserRating(resource._id)}
-                 avgRating={getAverageRating(resource._id)}
-                 totalRatings={getTotalRatings(resource._id)}
-                 onRate={handleRating}
-               />
-             </motion.div>
-           ))}
-         </div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center bg-white/60 backdrop-blur-sm p-16 rounded-3xl shadow-lg border border-white/30"
-            >
-              <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-violet-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Search className="w-10 h-10 text-indigo-600" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-3">
-                No Resources Found
-              </h3>
-              <p className="text-gray-600 max-w-md mx-auto">
-                Try adjusting your search term or skill filter to discover more learning opportunities.
-              </p>
-            </motion.div>
-          )}
+        <p className="text-sm text-gray-600 mb-8">
+          Showing <strong className="text-indigo-700">{filteredItems.length}</strong> resources
+        </p>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
-          )}
-        </main>
+        {/* Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {currentItems.map((item, i) => (
+            <motion.div key={item._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="h-full">
+              <ResourceCard resource={item} userRating={getUserRating(item._id)} onRate={handleRating} />
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-center gap-2 mt-12">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+              <button key={p} onClick={() => setCurrentPage(p)}
+                className={`w-11 h-11 rounded-xl font-medium transition-all ${p === currentPage ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white' : 'bg-white hover:bg-gray-50'}`}>
+                {p}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
