@@ -9,7 +9,9 @@ import {
   Menu,
   X,
   NotebookIcon,
-  FocusIcon
+  FocusIcon,
+  Users,
+  ServerCog
 } from 'lucide-react';
 import { useGetUserQuery } from '../../redux/features/users/usersApi';
 import { useSelector } from 'react-redux';

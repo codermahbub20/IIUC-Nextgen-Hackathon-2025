@@ -1,513 +1,327 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect, useMemo } from 'react';
 import { useGetUserQuery } from '../../redux/features/users/usersApi';
 import { useGetAllJobsQuery } from '../../redux/features/jobs/jobsApi';
 import { useGetAllResourcesQuery } from '../../redux/features/Resources/resourcesApi';
-import { Search, BookOpen, TrendingUp, AlertCircle, XCircle, ExternalLink, Loader2, CheckCircle2, Target, ArrowRight, Briefcase, GraduationCap } from 'lucide-react';
+import axios from 'axios';
+import {
+  Search, Target, ArrowRight, ExternalLink, Play, ChevronDown, ChevronUp,
+  CheckCircle2, AlertCircle, Loader2, BookOpen, Youtube
+} from 'lucide-react';
 
-interface Job {
-  _id: string;
-  title: string;
-  company: string;
-  requiredSkills: string[];
-  location?: string;
-  jobType?: string;
-  experienceLevel?: string;
-  description?: string;
-  careerTrack?: string;
-  applyLink?: string;
-}
+const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
 
-interface Resource {
-  _id: string;
-  title: string;
-  platform: string;
-  url: string;
-  relatedSkills: string[];
-  cost?: string;
-  description?: string;
-  duration?: string;
-  careerTrack?: string;
-}
-
-interface SkillGap {
-  job: Job;
-  matchedSkills: string[];
-  missingSkills: string[];
-  matchPercentage: number;
-  recommendedResources: Resource[];
-}
+interface Job { _id: string; title: string; company: string; requiredSkills: string[]; location?: string; jobType?: string; applyLink?: string; }
+interface Resource { _id: string; title: string; platform: string; url: string; relatedSkills: string[]; cost?: 'Free' | 'Paid'; duration?: string; }
+interface YouTubeVideo { videoId: string; title: string; channel: string; thumbnail: string; duration?: string; viewCount?: string; }
 
 const SkillGapAnalysis: React.FC = () => {
-  const [userId, setUserId] = useState<string>("");
+  const [userId, setUserId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [expandedSkills, setExpandedSkills] = useState<Set<string>>(new Set());
+  const [youtubeData, setYoutubeData] = useState<Record<string, YouTubeVideo[]>>({});
 
-  // Decode JWT token to get userId
   useEffect(() => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     if (token) {
       try {
-        const payload = token.split('.')[1];
-        const decoded = JSON.parse(atob(payload));
+        const decoded = JSON.parse(atob(token.split('.')[1]));
         setUserId(decoded.id);
-      } catch (error) {
-        console.error("Token decode error:", error);
-      }
+      } catch (e) { }
     }
   }, []);
 
-  // Fetch data from Redux APIs
-  const { data: userData, isLoading: isUserLoading, error: userError } = useGetUserQuery(userId || "", {
-    skip: !userId,
-  });
-  
-  const { data: jobsResponse, isLoading: isJobsLoading, error: jobsError } = useGetAllJobsQuery({});
-  const { data: resourcesResponse, isLoading: isResourcesLoading, error: resourcesError } = useGetAllResourcesQuery({});
+  const { data: userData, isLoading: userLoading } = useGetUserQuery(userId || "", { skip: !userId });
+  const { data: jobsData, isLoading: jobsLoading } = useGetAllJobsQuery({});
+  const { data: resourcesData, isLoading: resourcesLoading } = useGetAllResourcesQuery({});
 
-  // Enhanced skill matching logic
-  const skillsMatch = (userSkill: string, requiredSkill: string): boolean => {
-    const normalize = (skill: string) => skill.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-    const userNorm = normalize(userSkill);
-    const reqNorm = normalize(requiredSkill);
-    
-    // Exact match
-    if (userNorm === reqNorm) return true;
-    
-    // Contains match
-    if (userNorm.includes(reqNorm) || reqNorm.includes(userNorm)) return true;
-    
-    // Common skill variations mapping
-    const skillVariations: Record<string, string[]> = {
-      'js': ['javascript', 'js', 'ecmascript'],
-      'javascript': ['javascript', 'js', 'ecmascript'],
-      'typescript': ['typescript', 'ts'],
-      'react': ['react', 'reactjs'],
-      'redux': ['redux', 'reduxjs'],
-      'node': ['node', 'nodejs'],
-      'html': ['html', 'html5'],
-      'css': ['css', 'css3'],
-      'python': ['python', 'py'],
-      'sql': ['sql', 'mysql', 'postgresql', 'nosql'],
-      'aws': ['aws', 'amazonwebservices'],
-      'docker': ['docker', 'container'],
-      'kubernetes': ['kubernetes', 'k8s']
-    };
-    
-    // Check if both skills belong to the same variation group
-    for (const [key, variations] of Object.entries(skillVariations)) {
-      if (variations.includes(userNorm) && variations.includes(reqNorm)) {
-        return true;
-      }
-    }
-    
-    return false;
+  // Skill synonyms & normalization
+  const normalize = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9+#]/g, '');
+  const synonyms: Record<string, string[]> = {
+    javascript: ['js', 'javascript'],
+    typescript: ['ts', 'typescript'],
+    react: ['react', 'reactjs'],
+    nodejs: ['node', 'nodejs', 'node.js'],
+    nextjs: ['next', 'next.js', 'nextjs'],
+    tailwind: ['tailwind', 'tailwindcss'],
+    mongodb: ['mongo', 'mongodb'],
+    express: ['expressjs', 'express.js'],
+    redux: ['redux', 'reduxjs'],
+    graphql: ['graphql', 'apollo'],
   };
 
-  // Extract and normalize user skills
-  const userSkills = useMemo(() => {
-    if (!userData?.skills || !Array.isArray(userData.skills)) return [];
-    return userData.skills.map((skill: string) => skill.trim()).filter(Boolean);
-  }, [userData]);
+  const getRootSkill = (skill: string): string => {
+    const n = normalize(skill);
+    for (const [root, list] of Object.entries(synonyms)) {
+      if (list.includes(n)) return root;
+    }
+    return n;
+  };
 
-  // Core Skill Gap Analysis Logic
-  const skillGapAnalysis = useMemo((): SkillGap[] => {
-    const jobs = jobsResponse?.data || [];
-    const resources = resourcesResponse?.data || [];
-    
-    if (!jobs || !resources || userSkills.length === 0) return [];
+  const userSkillsSet = useMemo(() => 
+    new Set((userData?.data?.skills || userData?.skills || []).map((s: string) => getRootSkill(s))), 
+    [userData]
+  );
 
-    const results = jobs.map((job: Job) => {
-      const requiredSkills = job.requiredSkills.map(s => s.trim());
-      
-      // Find matched and missing skills
-      const matchedSkills: string[] = [];
-      const missingSkills: string[] = [];
-
-      requiredSkills.forEach(reqSkill => {
-        const isMatch = userSkills.some(userSkill => skillsMatch(userSkill, reqSkill));
-        if (isMatch) {
-          matchedSkills.push(reqSkill);
-        } else {
-          missingSkills.push(reqSkill);
-        }
+  // Fetch YouTube videos for a skill
+  const fetchYouTube = async (skill: string) => {
+    if (!YOUTUBE_API_KEY || youtubeData[skill]) return;
+    try {
+      const query = `${skill} tutorial 2025 OR ${skill} full course 2025 site:youtube.com`;
+      const res = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+        params: { part: 'snippet', q: query, type: 'video', maxResults: 6, key: YOUTUBE_API_KEY, videoDuration: 'medium' }
       });
 
-      // Calculate match percentage
-      const matchPercentage = requiredSkills.length > 0 
-        ? Math.round((matchedSkills.length / requiredSkills.length) * 100)
-        : 0;
+      const videos = res.data.items
+        .filter((i: any) => i.id.videoId)
+        .slice(0, 4)
+        .map((i: any) => ({
+          videoId: i.id.videoId,
+          title: i.snippet.title,
+          channel: i.snippet.channelTitle,
+          thumbnail: i.snippet.thumbnails.high?.url || i.snippet.thumbnails.medium?.url,
+        }));
 
-      // Find learning resources specifically for missing skills
-      const recommendedResources = resources
-        .filter((resource: Resource) => 
-          resource.relatedSkills.some(resourceSkill => 
-            missingSkills.some(missingSkill => 
-              skillsMatch(resourceSkill, missingSkill)
-            )
-          )
-        )
-        .sort((a: Resource, b: Resource) => {
-          // Prioritize free resources, then by relevance (number of matching skills)
-          const aCostPriority = a.cost?.toLowerCase() === 'free' ? 1 : 0;
-          const bCostPriority = b.cost?.toLowerCase() === 'free' ? 1 : 0;
-          
-          if (aCostPriority !== bCostPriority) return bCostPriority - aCostPriority;
-          
-          // Count how many missing skills this resource covers
-          const aSkillMatches = missingSkills.filter(missingSkill => 
-            a.relatedSkills.some(resourceSkill => skillsMatch(resourceSkill, missingSkill))
-          ).length;
-          
-          const bSkillMatches = missingSkills.filter(missingSkill => 
-            b.relatedSkills.some(resourceSkill => skillsMatch(resourceSkill, missingSkill))
-          ).length;
-          
-          return bSkillMatches - aSkillMatches;
-        })
-        .slice(0, 3); // Show top 3 most relevant resources
+      setYoutubeData(prev => ({ ...prev, [skill]: videos }));
+    } catch (err) {
+      console.warn("YouTube failed for:", skill);
+    }
+  };
 
-      return {
-        job,
-        matchedSkills,
-        missingSkills,
-        matchPercentage,
-        recommendedResources
-      };
-    })
-    // Filter: Only show partial matches (1-99%) with actual skill gaps
-    .filter(item => 
-      item.matchPercentage > 0 && 
-      item.matchPercentage < 100 && 
-      item.missingSkills.length > 0
-    )
-    // Sort by match percentage (highest first)
-    .sort((a, b) => b.matchPercentage - a.matchPercentage);
+  // Skill Gap Analysis
+  const gaps = useMemo(() => {
+    const jobs = (jobsData?.data || []) as Job[];
+    const resources = (resourcesData?.data || []) as Resource[];
 
-    return results;
-  }, [jobsResponse, resourcesResponse, userSkills]);
+    return jobs
+      .map(job => {
+        const required = job.requiredSkills.map(s => getRootSkill(s));
+        const matched = required.filter(s => userSkillsSet.has(s));
+        const missing = required.filter(s => !userSkillsSet.has(s));
 
-  // Filter by search term
-  const filteredAnalysis = useMemo(() => {
-    if (!searchTerm) return skillGapAnalysis;
-    
-    const term = searchTerm.toLowerCase();
-    return skillGapAnalysis.filter(item => 
-      item.job.title.toLowerCase().includes(term) ||
-      item.job.company.toLowerCase().includes(term) ||
-      item.job.careerTrack?.toLowerCase().includes(term) ||
-      item.missingSkills.some(skill => skill.toLowerCase().includes(term)) ||
-      item.matchedSkills.some(skill => skill.toLowerCase().includes(term))
-    );
-  }, [skillGapAnalysis, searchTerm]);
+        const matchPercent = required.length ? Math.round((matched.length / required.length) * 100) : 0;
 
-  // Loading state
-  if (isUserLoading || isJobsLoading || isResourcesLoading) {
+        // Trigger YouTube fetch
+        missing.forEach(skill => fetchYouTube(skill));
+
+        const recommendedResources = resources
+          .filter(r => r.relatedSkills.some(rs => missing.includes(getRootSkill(rs))))
+          .slice(0, 3);
+
+        return { job, matched, missing, matchPercent, recommendedResources };
+      })
+      .filter(g => g.matchPercent >= 40 && g.matchPercent < 95 && g.missing.length > 0)
+      .sort((a, b) => b.matchPercent - a.matchPercent)
+      .slice(0, 10);
+  }, [jobsData, resourcesData, userSkillsSet, youtubeData]);
+
+  const filtered = gaps.filter(g =>
+    !searchTerm ||
+    g.job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    g.job.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    g.missing.some(s => s.includes(searchTerm.toLowerCase()))
+  );
+
+  const toggleSkill = (key: string) => {
+    setExpandedSkills(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  if (userLoading || jobsLoading || resourcesLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-16 h-16 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-800 font-bold text-xl">Analyzing Your Skill Gaps...</p>
-          <p className="text-gray-600 text-sm mt-2">Matching your skills with job requirements</p>
+          <Loader2 className="w-16 h-16 text-indigo-600 animate-spin mx-auto mb-6" />
+          <p className="text-2xl font-bold text-indigo-700">Analyzing your skill gaps...</p>
         </div>
       </div>
     );
   }
 
-  // Error state
-  if (userError || jobsError || resourcesError) {
+  if (!userSkillsSet.size) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-10 max-w-md text-center border border-red-200">
-          <AlertCircle className="w-20 h-20 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-3">Error Loading Data</h2>
-          <p className="text-gray-600">
-            {userError ? "Failed to load user data. " : ""}
-            {jobsError ? "Failed to load jobs. " : ""}
-            {resourcesError ? "Failed to load resources. " : ""}
-            Please try refreshing the page.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Not authenticated
-  if (!userId || !userData) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-10 max-w-md text-center border border-gray-100">
-          <AlertCircle className="w-20 h-20 text-yellow-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-3">Authentication Required</h2>
-          <p className="text-gray-600">Please log in to view your personalized skill gap analysis and learning recommendations.</p>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-8">
+        <div className="bg-white rounded-3xl shadow-2xl p-12 text-center max-w-lg">
+          <Target className="w-24 h-24 text-amber-500 mx-auto mb-6" />
+          <h2 className="text-3xl font-bold mb-4">Add Your Skills First</h2>
+          <p className="text-gray-600 text-lg">Go to your profile and add skills to see personalized job gaps!</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 py-12 px-6">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Skill Gap Analysis & Learning Suggestions
+          <h1 className="text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 mb-4">
+            Close Your Skill Gaps
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Discover jobs you're partially qualified for and get personalized learning paths to bridge your skill gaps
+          <p className="text-2xl text-gray-700">
+            You're <span className="text-red-600 font-bold">{gaps.reduce((a, g) => a + g.missing.length, 0)}</span> skills away from your dream job
           </p>
         </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl p-6 shadow-lg border border-green-200">
-            <div className="flex items-center gap-4">
-              <div className="bg-green-100 p-3 rounded-lg">
-                <CheckCircle2 className="w-8 h-8 text-green-600" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{userSkills.length}</div>
-                <div className="text-gray-600">Your Current Skills</div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl p-6 shadow-lg border border-blue-200">
-            <div className="flex items-center gap-4">
-              <div className="bg-blue-100 p-3 rounded-lg">
-                <Target className="w-8 h-8 text-blue-600" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{skillGapAnalysis.length}</div>
-                <div className="text-gray-600">Partial Match Opportunities</div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl p-6 shadow-lg border border-purple-200">
-            <div className="flex items-center gap-4">
-              <div className="bg-purple-100 p-3 rounded-lg">
-                <BookOpen className="w-8 h-8 text-purple-600" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{resourcesResponse?.data?.length || 0}</div>
-                <div className="text-gray-600">Learning Resources</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Search */}
-        <div className="bg-white rounded-xl shadow-lg p-4 mb-8">
+        <div className="max-w-2xl mx-auto mb-12">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-500 w-6 h-6" />
             <input
               type="text"
-              placeholder="Search jobs by title, company, or skills..."
+              placeholder="Search jobs or missing skills..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+              className="w-full pl-16 pr-6 py-5 bg-white rounded-3xl shadow-xl text-lg focus:ring-4 focus:ring-indigo-300 outline-none"
             />
           </div>
         </div>
 
-        {/* Results */}
-        {filteredAnalysis.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
-            <BookOpen className="w-20 h-20 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-2xl font-bold text-gray-800 mb-3">
-              {skillGapAnalysis.length === 0 
-                ? "No Partial Matches Found" 
-                : "No Results Matching Your Search"}
-            </h3>
-            <p className="text-gray-600 text-lg">
-              {skillGapAnalysis.length === 0 
-                ? "You're either fully qualified for available jobs or need to explore different career paths." 
-                : "Try adjusting your search terms to find more opportunities."}
-            </p>
+        {filtered.length === 0 ? (
+          <div className="text-center py-20">
+            <CheckCircle2 className="w-32 h-32 text-green-500 mx-auto mb-8" />
+            <h2 className="text-4xl font-bold text-gray-800">You're Fully Qualified!</h2>
+            <p className="text-xl text-gray-600 mt-4">No major skill gaps — go apply!</p>
           </div>
         ) : (
-          <div className="space-y-8">
-            {filteredAnalysis.map((analysis) => (
-              <div key={analysis.job._id} className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200">
-                {/* Job Header */}
-                <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 text-white">
-                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                    <div className="flex-1">
-                      <h2 className="text-2xl font-bold mb-2">{analysis.job.title}</h2>
-                      <p className="text-blue-100 text-lg font-semibold mb-3">{analysis.job.company}</p>
-                      <div className="flex flex-wrap gap-2">
-                        {analysis.job.location && (
-                          <span className="bg-white/20 px-3 py-1 rounded-full text-sm">📍 {analysis.job.location}</span>
-                        )}
-                        {analysis.job.jobType && (
-                          <span className="bg-white/20 px-3 py-1 rounded-full text-sm">💼 {analysis.job.jobType}</span>
-                        )}
-                      </div>
+          <div className="space-y-10">
+            {filtered.map((gap) => (
+              <div key={gap.job._id} className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
+                {/* Job Card */}
+                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-white">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-3xl font-bold mb-2">{gap.job.title}</h3>
+                      <p className="text-xl opacity-90">{gap.job.company}</p>
                     </div>
-                    <div className="text-center bg-white/10 rounded-xl p-4 border border-white/20">
-                      <div className="text-3xl font-black">{analysis.matchPercentage}%</div>
-                      <div className="text-blue-100 text-sm font-semibold">Match Score</div>
+                    <div className="text-right">
+                      <div className="text-5xl font-black">{gap.matchPercent}%</div>
+                      <div className="text-sm opacity-80">Match</div>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-6">
-                  {/* Skills Analysis */}
-                  <div className="grid md:grid-cols-2 gap-8 mb-8">
-                    {/* Skills You Have */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-4">
-                        <CheckCircle2 className="w-5 h-5 text-green-600" />
-                        <h3 className="font-semibold text-gray-900 text-lg">Skills You Have ({analysis.matchedSkills.length})</h3>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {analysis.matchedSkills.map((skill, idx) => (
-                          <span key={idx} className="px-3 py-1.5 bg-green-100 text-green-800 rounded-lg text-sm font-medium">
-                            ✓ {skill}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
+                <div className="p-8">
+                  {/* Missing Skills */}
+                  <h4 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                    <AlertCircle className="w-8 h-8 text-red-500" />
+                    {gap.missing.length} Missing Skill{gap.missing.length > 1 ? 's' : ''}
+                  </h4>
 
-                    {/* Skill Gap */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-4">
-                        <XCircle className="w-5 h-5 text-red-600" />
-                        <h3 className="font-semibold text-gray-900 text-lg">Skill Gap ({analysis.missingSkills.length})</h3>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {analysis.missingSkills.map((skill, idx) => (
-                          <span key={idx} className="px-3 py-1.5 bg-red-100 text-red-800 rounded-lg text-sm font-medium border border-red-200">
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+                  <div className="space-y-6">
+                    {gap.missing.map((skill) => {
+                      const key = `${gap.job._id}-${skill}`;
+                      const isOpen = expandedSkills.has(key);
+                      const yt = youtubeData[skill] || [];
+                      const courses = gap.recommendedResources.filter(r => 
+                        r.relatedSkills.some(rs => getRootSkill(rs) === skill)
+                      );
 
-                  {/* Learning Recommendations */}
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
-                    <div className="flex items-center gap-3 mb-6">
-                      <TrendingUp className="w-6 h-6 text-blue-600" />
-                      <h3 className="font-bold text-gray-900 text-xl">Learning Path Recommendation</h3>
-                    </div>
-
-                    {/* Missing → Recommended Format */}
-                    <div className="mb-6">
-                      <div className="flex items-center gap-4 flex-wrap mb-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-red-700">Missing:</span>
-                          <div className="flex flex-wrap gap-1">
-                            {analysis.missingSkills.slice(0, 4).map((skill, idx) => (
-                              <span key={idx} className="text-red-700 bg-red-100 px-2 py-1 rounded text-sm">
-                                {skill}
-                              </span>
-                            ))}
-                            {analysis.missingSkills.length > 4 && (
-                              <span className="text-red-700 bg-red-100 px-2 py-1 rounded text-sm">
-                                +{analysis.missingSkills.length - 4} more
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <ArrowRight className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                        
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-blue-700">Recommended:</span>
-                          <div className="flex flex-wrap gap-1">
-                            {analysis.recommendedResources.length > 0 ? (
-                              analysis.recommendedResources.slice(0, 2).map((resource, idx) => (
-                                <span key={idx} className="text-blue-700 bg-blue-100 px-2 py-1 rounded text-sm">
-                                  {resource.title}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-gray-600 text-sm italic">
-                                Search on learning platforms
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Resource Cards */}
-                    {analysis.recommendedResources.length > 0 ? (
-                      <div className="grid gap-4">
-                        {analysis.recommendedResources.map((resource) => (
-                          <a
-                            key={resource._id}
-                            href={resource.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block bg-white p-4 rounded-lg border border-gray-300 hover:border-blue-500 hover:shadow-md transition-all group"
+                      return (
+                        <div key={skill} className="border-l-4 border-red-500 pl-6">
+                          <button
+                            onClick={() => toggleSkill(key)}
+                            className="w-full text-left flex items-center justify-between py-4 group"
                           >
-                            <div className="flex justify-between items-start mb-2">
-                              <h4 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                                {resource.title}
-                              </h4>
-                              <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors flex-shrink-0 mt-1" />
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                                <Target className="w-7 h-7 text-red-600" />
+                              </div>
+                              <div>
+                                <h5 className="text-2xl font-bold text-gray-800 capitalize">{skill}</h5>
+                                <p className="text-gray-600">Click to learn this skill</p>
+                              </div>
                             </div>
-                            
-                            <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-                              <span className="font-medium">{resource.platform}</span>
-                              {resource.duration && <span>⏱️ {resource.duration}</span>}
-                              {resource.cost && (
-                                <span className={
-                                  resource.cost.toLowerCase() === 'free' 
-                                    ? 'text-green-600 font-semibold' 
-                                    : 'text-orange-600'
-                                }>
-                                  💰 {resource.cost}
-                                </span>
-                              )}
+                            {isOpen ? <ChevronUp className="w-6 h-6" /> : <ChevronDown className="w-6 h-6" />}
+                          </button>
+
+                          {isOpen && (
+                            <div className="mt-6 grid md:grid-cols-2 gap-8 pb-8">
+                              {/* YouTube Tutorials */}
+                              <div>
+                                <h6 className="text-lg font-bold text-red-600 mb-4 flex items-center gap-2">
+                                  <Youtube className="w-6 h-6" fill="currentColor" />
+                                  Best YouTube Tutorials
+                                </h6>
+                                {yt.length > 0 ? (
+                                  <div className="space-y-4">
+                                    {yt.map((v) => (
+                                      <a
+                                        key={v.videoId}
+                                        href={`https://www.youtube.com/watch?v=${v.videoId}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex gap-4 bg-gray-50 p-4 rounded-xl hover:shadow-md transition group"
+                                      >
+                                        <img src={v.thumbnail} alt="" className="w-32 h-20 object-cover rounded-lg" />
+                                        <div className="flex-1">
+                                          <h6 className="font-semibold text-gray-800 group-hover:text-red-600 line-clamp-2">
+                                            {v.title}
+                                          </h6>
+                                          <p className="text-sm text-gray-600 mt-1">{v.channel}</p>
+                                        </div>
+                                      </a>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-center py-8 bg-gray-50 rounded-xl">
+                                    <Loader2 className="w-10 h-10 text-gray-400 animate-spin mx-auto mb-3" />
+                                    <p className="text-gray-600">Finding best tutorials...</p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Official Courses */}
+                              <div>
+                                <h6 className="text-lg font-bold text-indigo-600 mb-4 flex items-center gap-2">
+                                  <BookOpen className="w-6 h-6" />
+                                  Recommended Courses
+                                </h6>
+                                {courses.length > 0 ? (
+                                  <div className="space-y-3">
+                                    {courses.map((c) => (
+                                      <a
+                                        key={c._id}
+                                        href={c.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block p-4 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition"
+                                      >
+                                        <div className="flex justify-between items-center">
+                                          <div>
+                                            <h6 className="font-bold text-indigo-800">{c.title}</h6>
+                                            <p className="text-sm text-indigo-600">{c.platform} • {c.cost || 'Free'}</p>
+                                          </div>
+                                          <ExternalLink className="w-5 h-5 text-indigo-600" />
+                                        </div>
+                                      </a>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-gray-500 italic">No curated courses yet</p>
+                                )}
+                              </div>
                             </div>
-                            
-                            {resource.description && (
-                              <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                                {resource.description}
-                              </p>
-                            )}
-                            
-                            <div className="flex flex-wrap gap-1">
-                              {resource.relatedSkills.slice(0, 3).map((skill, idx) => (
-                                <span key={idx} className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                                  {skill}
-                                </span>
-                              ))}
-                              {resource.relatedSkills.length > 3 && (
-                                <span className="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded">
-                                  +{resource.relatedSkills.length - 3} more
-                                </span>
-                              )}
-                            </div>
-                          </a>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 bg-white rounded-lg border border-dashed border-gray-300">
-                        <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                        <p className="text-gray-600 font-medium mb-2">No specific resources found in database</p>
-                        <p className="text-sm text-gray-500">
-                          Search for these skills on: Udemy, Coursera, freeCodeCamp, YouTube
-                        </p>
-                      </div>
-                    )}
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Apply Button */}
-                  {analysis.job.applyLink && (
-                    <div className="mt-6 text-center">
+                  {gap.job.applyLink && (
+                    <div className="mt-10 text-center">
                       <a
-                        href={analysis.job.applyLink}
+                        href={gap.job.applyLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                        className="inline-flex items-center gap-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-10 py-5 rounded-2xl text-xl font-bold hover:shadow-2xl transition-all hover:scale-105"
                       >
-                        Apply for this Position
-                        <ExternalLink className="w-4 h-4" />
+                        Apply Now ({gap.matchPercent}% Ready)
+                        <ArrowRight className="w-6 h-6" />
                       </a>
                     </div>
                   )}

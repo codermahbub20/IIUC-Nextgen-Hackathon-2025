@@ -1,11 +1,18 @@
 import { useState } from "react";
-import { Loader2, Download,  Target, Clock, BookOpen, Rocket, Calendar, CheckCircle2, TrendingUp } from "lucide-react";
+import { Loader2, Download, Target, Clock, BookOpen, Rocket, Calendar, CheckCircle2, TrendingUp, ExternalLink } from "lucide-react";
+
+interface Resource {
+  name: string;
+  url: string;
+  description: string; // Added for more informative content
+}
 
 interface RoadmapPhase {
   phase: string;
   duration: string;
   topics: string[];
   projects: string[];
+  resources: Resource[]; // Added resources for informative learning
 }
 
 interface RoadmapData {
@@ -13,6 +20,7 @@ interface RoadmapData {
   timeframe: string;
   phases: RoadmapPhase[];
   applicationTiming: string;
+  beginnerTips?: string[]; // Added for beginners to make it more informative
 }
 
 const CareerRoadmapGenerator = () => {
@@ -28,16 +36,19 @@ const CareerRoadmapGenerator = () => {
       alert("Please fill in current skills and target role");
       return;
     }
-
     setIsGenerating(true);
     try {
-      // Simulated API call - replace with your actual Supabase function
+      // Simulated API call - replace with your actual Supabase function or AI API (e.g., OpenAI/Grok API) to generate dynamic roadmap
+      // In a real implementation, pass currentSkills, targetRole, timeframe, learningTime to an AI prompt like:
+      // "Generate a detailed career roadmap for a beginner with skills '{currentSkills}' aiming for '{targetRole}' in {timeframe} months, dedicating {learningTime} hours/week. Include phases, topics, projects, online resources with descriptions, and beginner tips."
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Mock data for demonstration
+     
+      // Enhanced mock data for demonstration: Tailored for beginners, includes resources with descriptions, and beginner tips
+      // Assumes user is at beginner level if currentSkills is basic/empty; adjust dynamically in real API
+      const isBeginner = currentSkills.toLowerCase().includes("beginner") || currentSkills.trim() === "" || currentSkills.toLowerCase().includes("none");
       const mockRoadmap: RoadmapData = {
         targetRole: targetRole,
-        timeframe: `${timeframe} months`,
+        timeframe: `${timeframe} months (dedicating ~${learningTime || '10-20'} hours/week)`,
         phases: [
           {
             phase: "Foundation Building",
@@ -52,6 +63,11 @@ const CareerRoadmapGenerator = () => {
               "Personal portfolio website",
               "Basic CRUD application",
               "Open source contribution"
+            ],
+            resources: [
+              { name: "freeCodeCamp - Responsive Web Design", url: "https://www.freecodecamp.org/learn/responsive-web-design/", description: "Free interactive course for beginners covering HTML, CSS, and basic projects. Perfect for hands-on learning." },
+              { name: "MDN Web Docs - Getting Started", url: "https://developer.mozilla.org/en-US/docs/Learn/Getting_started_with_the_web", description: "Comprehensive guides and tutorials from Mozilla, ideal for understanding web fundamentals with examples." },
+              { name: "GitHub Guides", url: "https://guides.github.com/", description: "Step-by-step tutorials on using Git and GitHub, great for version control beginners." }
             ]
           },
           {
@@ -67,6 +83,11 @@ const CareerRoadmapGenerator = () => {
               "Full-stack web application",
               "API development project",
               "Database-driven application"
+            ],
+            resources: [
+              { name: "React Official Tutorial", url: "https://react.dev/learn", description: "Official docs with interactive tutorials for building user interfaces, including state management and hooks." },
+              { name: "Postman Learning Center", url: "https://learning.postman.com/", description: "Free resources for learning API development, testing, and integration with hands-on labs." },
+              { name: "freeCodeCamp - Relational Database", url: "https://www.freecodecamp.org/learn/relational-database/", description: "Practical course on databases using PostgreSQL, including design and queries." }
             ]
           },
           {
@@ -82,12 +103,23 @@ const CareerRoadmapGenerator = () => {
               "Scalable production application",
               "Microservices architecture",
               "CI/CD pipeline implementation"
+            ],
+            resources: [
+              { name: "System Design Primer", url: "https://github.com/donnemartin/system-design-primer", description: "GitHub repo with in-depth guides on system design interviews and concepts for scalable apps." },
+              { name: "OWASP Security Cheat Sheet", url: "https://cheatsheetseries.owasp.org/", description: "Practical security best practices and checklists for web applications." },
+              { name: "AWS Free Tier Tutorials", url: "https://aws.amazon.com/free/", description: "Hands-on tutorials for cloud deployment using AWS, including DevOps basics like CI/CD." }
             ]
           }
         ],
-        applicationTiming: "Start applying after completing Phase 2 (Month 3). Continue building projects while interviewing. Focus on companies that value continuous learners."
+        applicationTiming: "Start applying after completing Phase 2 (Month 3). Continue building projects while interviewing. Focus on companies that value continuous learners. Network on LinkedIn and attend virtual meetups.",
+        beginnerTips: isBeginner ? [
+          "Start with 1-2 hours daily to avoid burnout.",
+          "Join online communities like Reddit's r/learnprogramming for support.",
+          "Track progress weekly and adjust based on what works for you.",
+          "Focus on understanding concepts before jumping to advanced topics.",
+          "Practice consistently – code every day, even if just for 30 minutes."
+        ] : undefined
       };
-
       setRoadmap(mockRoadmap);
     } catch (error) {
       console.error('Error generating roadmap:', error);
@@ -99,8 +131,7 @@ const CareerRoadmapGenerator = () => {
 
   const downloadPDF = async () => {
     if (!roadmap) return;
-
-    // Create HTML content for PDF
+    // Enhanced HTML content for PDF: Added resources section with links and descriptions, beginner tips if applicable
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -145,6 +176,28 @@ const CareerRoadmapGenerator = () => {
           .meta-info p {
             color: #475569;
             font-size: 16px;
+          }
+          .beginner-tips {
+            background: #ecfdf5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #10b981;
+          }
+          .beginner-tips h2 {
+            color: #065f46;
+            font-size: 20px;
+            margin-bottom: 10px;
+          }
+          .beginner-tips ul li {
+            padding: 8px 0 8px 25px;
+            position: relative;
+            color: #065f46;
+          }
+          .beginner-tips li::before {
+            content: "💡";
+            position: absolute;
+            left: 0;
           }
           .phase {
             margin-bottom: 30px;
@@ -215,6 +268,23 @@ const CareerRoadmapGenerator = () => {
             color: #3b82f6;
             font-weight: bold;
           }
+          .resource li {
+            display: flex;
+            flex-direction: column;
+          }
+          .resource a {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: bold;
+          }
+          .resource a:hover {
+            text-decoration: underline;
+          }
+          .resource .desc {
+            font-size: 14px;
+            color: #64748b;
+            margin-top: 4px;
+          }
           .application-section {
             background: #fef3c7;
             padding: 20px;
@@ -246,12 +316,19 @@ const CareerRoadmapGenerator = () => {
           <h1>🎯 Career Roadmap</h1>
           <div class="subtitle">Your Personalized Path to Success</div>
         </div>
-        
+       
         <div class="meta-info">
           <h2>${roadmap.targetRole}</h2>
           <p><strong>Timeline:</strong> ${roadmap.timeframe}</p>
         </div>
-
+        ${roadmap.beginnerTips ? `
+          <div class="beginner-tips">
+            <h2>Beginner Tips for Success</h2>
+            <ul>
+              ${roadmap.beginnerTips.map(tip => `<li>${tip}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
         ${roadmap.phases.map((phase, idx) => `
           <div class="phase">
             <div class="phase-header">
@@ -274,28 +351,36 @@ const CareerRoadmapGenerator = () => {
                   ${phase.projects.map(project => `<li>${project}</li>`).join('')}
                 </ul>
               </div>
+              <div class="section resource">
+                <h3>Recommended Resources</h3>
+                <ul>
+                  ${phase.resources.map(res => `
+                    <li>
+                      <a href="${res.url}">${res.name}</a>
+                      <div class="desc">${res.description}</div>
+                    </li>
+                  `).join('')}
+                </ul>
+              </div>
             </div>
           </div>
         `).join('')}
-
         <div class="application-section">
           <h2>📅 When to Start Applying</h2>
           <p>${roadmap.applicationTiming}</p>
         </div>
-
         <div class="footer">
           Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
         </div>
       </body>
       </html>
     `;
-
     // Create a new window for printing
     const printWindow = window.open('', '', 'width=800,height=600');
     if (printWindow) {
       printWindow.document.write(htmlContent);
       printWindow.document.close();
-      
+     
       // Wait for content to load then print
       printWindow.onload = () => {
         setTimeout(() => {
@@ -318,31 +403,30 @@ const CareerRoadmapGenerator = () => {
             AI Career Roadmap Generator
           </h1>
           <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-            Get a personalized learning path tailored to your goals and current skill level
+            Get a personalized learning path tailored to your goals and current skill level, with resources and tips for beginners
           </p>
         </div>
-
         {/* Input Form */}
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-gray-100">
           <div className="flex items-center gap-2 mb-6">
             <Target className="w-5 h-5 text-blue-600" />
             <h2 className="text-2xl font-bold text-gray-800">Tell us about yourself</h2>
           </div>
-          
+         
           <div className="space-y-6">
             <div>
               <label className="text-sm font-semibold text-gray-700 mb-2 block flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-blue-600" />
-                Current Skills
+                Current Skills (e.g., "beginner" or "none")
               </label>
               <input
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors"
-                placeholder="e.g., HTML, CSS, JavaScript, React basics"
+                placeholder="e.g., HTML, CSS, JavaScript, React basics, or 'beginner'"
                 value={currentSkills}
                 onChange={(e) => setCurrentSkills(e.target.value)}
               />
             </div>
-            
+           
             <div>
               <label className="text-sm font-semibold text-gray-700 mb-2 block flex items-center gap-2">
                 <Target className="w-4 h-4 text-blue-600" />
@@ -355,7 +439,6 @@ const CareerRoadmapGenerator = () => {
                 onChange={(e) => setTargetRole(e.target.value)}
               />
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="text-sm font-semibold text-gray-700 mb-2 block flex items-center gap-2">
@@ -371,7 +454,6 @@ const CareerRoadmapGenerator = () => {
                   onChange={(e) => setTimeframe(e.target.value)}
                 />
               </div>
-
               <div>
                 <label className="text-sm font-semibold text-gray-700 mb-2 block flex items-center gap-2">
                   <Clock className="w-4 h-4 text-blue-600" />
@@ -386,9 +468,8 @@ const CareerRoadmapGenerator = () => {
                 />
               </div>
             </div>
-
-            <button 
-              onClick={generateRoadmap} 
+            <button
+              onClick={generateRoadmap}
               disabled={isGenerating}
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-lg font-semibold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
             >
@@ -406,7 +487,6 @@ const CareerRoadmapGenerator = () => {
             </button>
           </div>
         </div>
-
         {/* Roadmap Display */}
         {roadmap && (
           <div className="space-y-6 animate-fade-in">
@@ -419,7 +499,7 @@ const CareerRoadmapGenerator = () => {
                 </h2>
                 <p className="text-gray-600 mt-1">Follow this path to achieve your career goals</p>
               </div>
-              <button 
+              <button
                 onClick={downloadPDF}
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition-colors shadow-md hover:shadow-lg"
               >
@@ -427,7 +507,6 @@ const CareerRoadmapGenerator = () => {
                 Download PDF
               </button>
             </div>
-
             {/* Overview Card */}
             <div className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-2xl p-8 shadow-xl">
               <div className="flex items-center gap-3 mb-4">
@@ -440,7 +519,27 @@ const CareerRoadmapGenerator = () => {
                 </div>
               </div>
             </div>
-
+            {/* Beginner Tips if applicable */}
+            {roadmap.beginnerTips && (
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl p-8 shadow-lg">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-green-200 rounded-full">
+                    <BookOpen className="w-6 h-6 text-green-700" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-green-900 mb-3">Beginner Tips for Success</h3>
+                    <div className="space-y-2">
+                      {roadmap.beginnerTips.map((tip, i) => (
+                        <div key={i} className="flex items-start gap-3 p-3 bg-green-100 rounded-lg">
+                          <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                          <span className="text-green-800">{tip}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             {/* Phases */}
             {roadmap.phases.map((phase, idx) => (
               <div key={idx} className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-xl transition-shadow">
@@ -458,7 +557,7 @@ const CareerRoadmapGenerator = () => {
                     </div>
                   </div>
                 </div>
-                
+               
                 <div className="p-6 space-y-6">
                   <div>
                     <h4 className="font-bold text-lg mb-3 text-gray-800 flex items-center gap-2">
@@ -474,7 +573,6 @@ const CareerRoadmapGenerator = () => {
                       ))}
                     </div>
                   </div>
-
                   <div>
                     <h4 className="font-bold text-lg mb-3 text-gray-800 flex items-center gap-2">
                       <Rocket className="w-5 h-5 text-indigo-600" />
@@ -489,10 +587,28 @@ const CareerRoadmapGenerator = () => {
                       ))}
                     </div>
                   </div>
+                  <div>
+                    <h4 className="font-bold text-lg mb-3 text-gray-800 flex items-center gap-2">
+                      <ExternalLink className="w-5 h-5 text-green-600" />
+                      Recommended Resources
+                    </h4>
+                    <div className="space-y-2">
+                      {phase.resources.map((res, i) => (
+                        <div key={i} className="flex items-start gap-3 p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
+                          <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <a href={res.url} target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:underline font-medium">
+                              {res.name}
+                            </a>
+                            <p className="text-sm text-gray-600 mt-1">{res.description}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
-
             {/* Application Timing */}
             <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-8 shadow-lg">
               <div className="flex items-start gap-4">
