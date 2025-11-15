@@ -15,6 +15,7 @@ import CareerRoadmapGenerator from "../Components/Dashboard/CareerRoadmap";
 import SkillGapAnalysis from "../Components/Dashboard/SkillgapAnalysis";
 import Index from "../Components/ChatBot/Index";
 import JobTracker from "../Components/Dashboard/JobTracker";
+import App from "../Components/Dashboard/Admin/JobManage";
 
 export const router = createBrowserRouter([
   // ----------------------
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
       { path: "skill-gap", element: <SkillGapAnalysis /> },
       { path: "resources", element: <Resources /> },
       { path: "chatbot", element: <Index /> },
+      { path: "job-manage", element: <App /> },
     ],
   },
 ]);

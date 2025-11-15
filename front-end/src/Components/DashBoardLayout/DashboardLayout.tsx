@@ -34,7 +34,7 @@ const userMenu: NavigationItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Resume Build", url: "/dashboard/resume-build", icon: NotebookIcon },
   // { title: "CareerBot", url: "/dashboard/CareerBot", icon: NotebookIcon },
-  { title: "CVAssistant", url: "/dashboard/cvassistant", icon: NotebookIcon },
+  // { title: "CVAssistant", url: "/dashboard/cvassistant", icon: NotebookIcon },
   { title: "Job Tracker", url: "/dashboard/job-tracker", icon: NotebookIcon },
   { title: "Career Roadmap", url: "/dashboard/career-roadmap", icon: FocusIcon },
   { title: "My Skill Gap", url: "/dashboard/skill-gap", icon: FocusIcon },
@@ -45,7 +45,7 @@ const userMenu: NavigationItem[] = [
 const adminMenu: NavigationItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Manage Users", url: "/dashboard/manage-users", icon: Users },
-  { title: "Service Page", url: "/dashboard/service-page", icon: ServerCog },
+  { title: "Job Manage", url: "/dashboard/job-manage", icon: ServerCog },
  
 ];
 

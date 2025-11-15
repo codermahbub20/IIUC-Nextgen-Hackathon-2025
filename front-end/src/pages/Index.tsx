@@ -1,12 +1,15 @@
+'use client';
+
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Loader2, Send, GraduationCap, Briefcase, BookOpen, TrendingUp } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "../hooks/use-toast";
+import { supabase } from "../Components/ChatBot/client";
+import { Card } from "../Components/ui/card";
+import { ScrollArea } from "@radix-ui/react-scroll-area";
+import { Button } from "../Components/ui/button";
+import { Avatar, AvatarFallback } from "@radix-ui/react-avatar";
+import { Input } from "../Components/ui/input";
+
 
 type Message = {
   role: "user" | "assistant";
@@ -20,7 +23,7 @@ const SUGGESTED_QUESTIONS = [
   "What certifications are valuable for cloud computing?",
 ];
 
-const Index = () => {
+export default function CareerBot() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -39,15 +42,7 @@ const Index = () => {
         body: { message: messageText }
       });
 
-      if (error) {
-        console.error('Function error:', error);
-        toast({
-          title: "Error",
-          description: "Failed to get response. Please try again.",
-          variant: "destructive",
-        });
-        return;
-      }
+      if (error) throw error;
 
       const assistantMessage: Message = {
         role: "assistant",
@@ -58,7 +53,7 @@ const Index = () => {
       console.error('Error:', error);
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: "Failed to get response. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -109,71 +104,73 @@ const Index = () => {
         <Card className="max-w-4xl mx-auto shadow-xl">
           <div className="h-[500px] flex flex-col">
             <ScrollArea className="flex-1 p-6">
-              {messages.length === 0 ? (
-                <div className="space-y-4">
-                  <p className="text-center text-muted-foreground mb-6">
-                    Ask me anything about your career! Here are some ideas:
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {SUGGESTED_QUESTIONS.map((question, index) => (
-                      <Button
-                        key={index}
-                        variant="outline"
-                        className="h-auto py-3 px-4 text-left justify-start hover:bg-primary/5 hover:border-primary/50 transition-all"
-                        onClick={() => handleSuggestedQuestion(question)}
-                        disabled={isLoading}
-                      >
-                        <span className="text-sm">{question}</span>
-                      </Button>
-                    ))}
+              <div className="pr-4">
+                {messages.length === 0 ? (
+                  <div className="space-y-4">
+                    <p className="text-center text-muted-foreground mb-6">
+                      Ask me anything about your career! Here are some ideas:
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {SUGGESTED_QUESTIONS.map((question, index) => (
+                        <Button
+                          key={index}
+                          variant="outline"
+                          className="h-auto py-3 px-4 text-left justify-start hover:bg-primary/5 hover:border-primary/50 transition-all"
+                          onClick={() => handleSuggestedQuestion(question)}
+                          disabled={isLoading}
+                        >
+                          <span className="text-sm">{question}</span>
+                        </Button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {messages.map((message, index) => (
-                    <div
-                      key={index}
-                      className={`flex gap-3 ${
-                        message.role === "user" ? "justify-end" : "justify-start"
-                      }`}
-                    >
-                      {message.role === "assistant" && (
+                ) : (
+                  <div className="space-y-6">
+                    {messages.map((message, index) => (
+                      <div
+                        key={index}
+                        className={`flex gap-3 ${
+                          message.role === "user" ? "justify-end" : "justify-start"
+                        }`}
+                      >
+                        {message.role === "assistant" && (
+                          <Avatar className="w-8 h-8 border-2 border-primary/20">
+                            <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-xs">
+                              CB
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+                        <div
+                          className={`rounded-2xl px-4 py-3 max-w-[80%] ${
+                            message.role === "user"
+                              ? "bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-md"
+                              : "bg-muted border border-border"
+                          }`}
+                        >
+                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                        </div>
+                        {message.role === "user" && (
+                          <Avatar className="w-8 h-8 border-2 border-muted">
+                            <AvatarFallback className="bg-muted text-xs">You</AvatarFallback>
+                          </Avatar>
+                        )}
+                      </div>
+                    ))}
+                    {isLoading && (
+                      <div className="flex gap-3 justify-start">
                         <Avatar className="w-8 h-8 border-2 border-primary/20">
                           <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-xs">
                             CB
                           </AvatarFallback>
                         </Avatar>
-                      )}
-                      <div
-                        className={`rounded-2xl px-4 py-3 max-w-[80%] ${
-                          message.role === "user"
-                            ? "bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-md"
-                            : "bg-muted border border-border"
-                        }`}
-                      >
-                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                        <div className="rounded-2xl px-4 py-3 bg-muted border border-border">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        </div>
                       </div>
-                      {message.role === "user" && (
-                        <Avatar className="w-8 h-8 border-2 border-muted">
-                          <AvatarFallback className="bg-muted text-xs">You</AvatarFallback>
-                        </Avatar>
-                      )}
-                    </div>
-                  ))}
-                  {isLoading && (
-                    <div className="flex gap-3 justify-start">
-                      <Avatar className="w-8 h-8 border-2 border-primary/20">
-                        <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-xs">
-                          CB
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="rounded-2xl px-4 py-3 bg-muted border border-border">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                  </div>
+                )}
+              </div>
             </ScrollArea>
 
             {/* Input Area */}
@@ -215,6 +212,4 @@ const Index = () => {
       </div>
     </div>
   );
-};
-
-export default Index;
+}
